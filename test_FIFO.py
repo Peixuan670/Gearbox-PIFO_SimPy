@@ -36,7 +36,7 @@ class FIFO_tb(HW_sim_object):
 
         # push all data
         for word in data_words:
-            print '@ {:04d} - pushed data word {}'.format(self.env.now, word)
+            print ('@ {:04d} - pushed data word {}'.format(self.env.now, word))
             self.fifo_w_in_pipe.put(word)
             yield self.fifo_w_out_pipe.get()
 
@@ -45,7 +45,7 @@ class FIFO_tb(HW_sim_object):
             # submit pop request (value in put is a don't care)
             self.fifo_r_in_pipe.put(1) 
             word = yield self.fifo_r_out_pipe.get()
-            print '@ {:04d} - popped data word {}'.format(self.env.now, word)
+            print ('@ {:04d} - popped data word {}'.format(self.env.now, word))
 
 
 def main():

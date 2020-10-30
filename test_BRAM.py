@@ -36,7 +36,7 @@ class BRAM_tb(HW_sim_object):
 
         # write all items
         for (addr, item) in zip(addresses, items):
-            print '@ {:04d} - writing item {} to address {}'.format(self.env.now, item, addr)
+            print ('@ {:04d} - writing item {} to address {}'.format(self.env.now, item, addr))
             self.bram_w_in_pipe.put((addr, item))
             yield self.bram_w_out_pipe.get()
 
@@ -45,7 +45,7 @@ class BRAM_tb(HW_sim_object):
             # submit read request
             self.bram_r_in_pipe.put(addr)
             item = yield self.bram_r_out_pipe.get()
-            print '@ {:04d} - received item {} from address {}'.format(self.env.now, item, addr)
+            print ('@ {:04d} - received item {} from address {}'.format(self.env.now, item, addr))
 
 
 def main():
