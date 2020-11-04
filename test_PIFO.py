@@ -18,7 +18,7 @@ class PIFO_tb(HW_sim_object):
         self.pifo_w_out_pipe = simpy.Store(env)
 
         # instantiate the PIFO object
-        self.pifo = PIFO(env, period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe, maxsize=10, write_latency=1, read_latency=2, init_items=[])
+        self.pifo = PIFO(env, period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe, maxsize=128, write_latency=1, read_latency=2, init_items=[])
 
         self.run()
 
@@ -32,7 +32,7 @@ class PIFO_tb(HW_sim_object):
         """
         State machine to push all test data then read it back
         """
-        data_words = random.sample(range(0, 20), 11)
+        data_words = random.sample(range(0, 20), 10)
 
         # push all data
         for word in data_words:
