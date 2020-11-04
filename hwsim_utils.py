@@ -189,6 +189,78 @@ class FIFO(HW_sim_object):
     def __str__(self):
         return str(self.items)
 
+# Peixuan 10292020
+class PIFO(HW_sim_object):
+    def __init__(self, env, period, r_in_pipe, r_out_pipe, w_in_pipe, w_out_pipe=None, maxsize=128, write_latency=1, read_latency=1, shift_latency=1, init_items=[]):
+        super(PIFO, self).__init__(env, period)
+        self.r_in_pipe = r_in_pipe
+        self.r_out_pipe = r_out_pipe
+        self.w_in_pipe = w_in_pipe
+        self.w_out_pipe = w_out_pipe
+        self.write_latency = write_latency
+        self.read_latency = read_latency
+        self.shift_latency = shift_latency
+        self.maxsize = maxsize
+        self.items = init_items
+
+        # register processes for simulation
+        self.run()
+
+    def run(self):
+        self.env.process(self.push_sm())
+        self.env.process(self.pop_sm())
+
+    def push_sm(self):
+        """
+        State machine to push incoming data into the PIFO
+        """
+        poped_data = 0
+
+        while True:
+            # wait to receive incoming data
+            data = yield self.w_in_pipe.get()
+            # model write latency
+            for i in range(self.write_latency):
+                yield self.wait_clock()
+            # first enque the item
+            self.items.append(data)
+            # then insert in the correct position and shift (sorting)
+            for i in range(self.shift_latency):
+                yield self.wait_clock()
+            self.items.sort()
+            if len(self.items) > self.maxsize : # Peixuan Q: what if len = maxsize, should we keep the data?
+                poped_data = self.items.pop(len(self.items)-1)
+            # indicate write_completion
+            if self.w_out_pipe is not None:
+                if poped_data:
+                    self.w_out_pipe.put(poped_data)
+                else:
+                    done = 1
+                    self.w_out_pipe.put(done)
+
+    def pop_sm(self):
+        """
+        State machine to pop data out of the PIFO upon request
+        """
+        while True:
+            # wait to receive a read request
+            req = yield self.r_in_pipe.get()
+            # model read latency
+            for i in range(self.read_latency):
+                yield self.wait_clock()
+            # try to read head element
+            if len(self.items) > 0:
+                data = self.items[0]
+                self.items = self.items[1:]
+            else:
+                print >> sys.stderr, "ERROR: PIFO pop_sm: attempted to read from empty PIFO"
+                data = None
+            # write data back
+            self.r_out_pipe.put(data)
+
+    def __str__(self):
+        return str(self.items)
+
 class AXI_S_master(HW_sim_object):
     def __init__(self, env, period, out_pipe, bus_width, pkt_list):
         super(AXI_S_master, self).__init__(env, period)
