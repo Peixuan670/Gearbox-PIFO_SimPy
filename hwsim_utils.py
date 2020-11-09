@@ -214,9 +214,10 @@ class PIFO(HW_sim_object):
         """
         State machine to push incoming data into the PIFO
         """
-        poped_data = 0
+        popped_data = 0
 
         while True:
+            popped_data_valid = 0
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
@@ -229,14 +230,16 @@ class PIFO(HW_sim_object):
                 yield self.wait_clock()
             self.items.sort()
             if len(self.items) > self.maxsize : # Peixuan Q: what if len = maxsize, should we keep the data?
-                poped_data = self.items.pop(len(self.items)-1)
+                popped_data = self.items.pop(len(self.items)-1)
+                popped_data_valid = 1
             # indicate write_completion
             if self.w_out_pipe is not None:
-                if poped_data:
-                    self.w_out_pipe.put(poped_data)
-                else:
+                #if popped_data:
+                #    self.w_out_pipe.put(popped_data)
+                #    print ('popped_data: {0}'.format(popped_data))
+                #else:
                     done = 1
-                    self.w_out_pipe.put(done)
+                    self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
 
     def pop_sm(self):
         """
