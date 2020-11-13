@@ -194,7 +194,13 @@ class FIFO(HW_sim_object):
     def get_len(self):
         return len(self.items)
     
+    def peek_front(self):
+        if len(self.items):
+            return self.items[0]
+        else:
+            return 0
     
+
 
 # Peixuan 10292020
 class PIFO(HW_sim_object):
@@ -270,6 +276,12 @@ class PIFO(HW_sim_object):
 
     def __str__(self):
         return str(self.items)
+    
+    def peek_front(self):
+        if len(self.items):
+            return self.items[0]
+        else:
+            return 0
 
 class AXI_S_master(HW_sim_object):
     def __init__(self, env, period, out_pipe, bus_width, pkt_list):

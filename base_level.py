@@ -94,10 +94,19 @@ class BaseLevel(HW_sim_object):
     def get_earliest_pkt_timestamp(self):
     	# return time stamp from the head of PIFO
         if self.fifos[self.cur_fifo].get_len():
-            top_pkt = self.fifos[self.cur_fifo]
+            top_pkt = self.fifos[self.cur_fifo].peek_front()
+            return top_pkt.getFinishTime()
+        else:
+            earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
+            if earliest_fifo > -1:
+                top_pkt = self.fifos[earliest_fifo].peek_front()
+                return top_pkt.getFinishTime()
+            else:
+                return -1 # there is no pkt in this level
+
 
         #TODO
-        top_pkt = self.pifo.peek_front()
+        top_pkt = self.fifo.peek_front()
         return top_pkt.getFinishTime()
 
     def update_vc(self, vc):
