@@ -189,6 +189,13 @@ class FIFO(HW_sim_object):
     def __str__(self):
         return str(self.items)
 
+    # TODO: get_len()? is_empty()?
+
+    def get_len(self):
+        return len(self.items)
+    
+    
+
 # Peixuan 10292020
 class PIFO(HW_sim_object):
     def __init__(self, env, period, r_in_pipe, r_out_pipe, w_in_pipe, w_out_pipe=None, maxsize=128, write_latency=1, read_latency=1, shift_latency=1, init_items=[]):
