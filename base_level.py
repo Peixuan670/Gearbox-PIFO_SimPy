@@ -4,9 +4,10 @@ import math
 # This is the base level (level 0), no pifo
 class BaseLevel(HW_sim_object):
 	# Public
-    def __init__(self, env, period, granularity, fifo_size, fifo_write_latency=1, \
-        fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0):
-        super(Level, self).__init__(env, period)
+    def __init__(self, env, period, granularity, fifo_size, fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, \
+        fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
+        fifo_check_latency=1, fifo_num=10, initial_vc=0):
+        super(BaseLevel, self).__init__(env, period)
         self.granularity = granularity
         self.fifo_num = fifo_num
         self.fifo_size = fifo_size
@@ -23,17 +24,17 @@ class BaseLevel(HW_sim_object):
         
         # Initialize FIFO array and read/write handle
         
-        self.fifo_r_in_pipe_arr = []
-        self.fifo_r_out_pipe_arr = []
-        self.fifo_w_in_pipe_arr = []
-        self.fifo_w_out_pipe_arr = []
+        self.fifo_r_in_pipe_arr = fifo_r_in_pipe_arr
+        self.fifo_r_out_pipe_arr = fifo_r_out_pipe_arr
+        self.fifo_w_in_pipe_arr = fifo_w_in_pipe_arr
+        self.fifo_w_out_pipe_arr = fifo_w_out_pipe_arr
         
         index = 0
         while (index < self.fifo_num):
-            self.fifo_r_in_pipe_arr.append(simpy.Store(env))
-            self.fifo_r_out_pipe_arr.append(simpy.Store(env))
-            self.fifo_w_in_pipe_arr.append(simpy.Store(env))
-            self.fifo_w_out_pipe_arr.append(simpy.Store(env))
+            #self.fifo_r_in_pipe_arr.append(simpy.Store(env))
+            #self.fifo_r_out_pipe_arr.append(simpy.Store(env))
+            #self.fifo_w_in_pipe_arr.append(simpy.Store(env))
+            #self.fifo_w_out_pipe_arr.append(simpy.Store(env))
             
             new_fifo = FIFO(env, period, self.fifo_r_in_pipe_arr[index], self.fifo_r_out_pipe_arr[index], \
                 self.fifo_w_in_pipe_arr[index], self.fifo_w_out_pipe_arr[index], maxsize=self.fifo_size, \
@@ -103,11 +104,6 @@ class BaseLevel(HW_sim_object):
                 return top_pkt.getFinishTime()
             else:
                 return -1 # there is no pkt in this level
-
-
-        #TODO
-        top_pkt = self.fifo.peek_front()
-        return top_pkt.getFinishTime()
 
     def update_vc(self, vc):
         # Update vc

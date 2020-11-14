@@ -4,7 +4,10 @@ import math
 class Level(HW_sim_object):
 	# Public
     def __init__(self, env, period, granularity, fifo_size, pifo_thresh, pifo_size, \
-        fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, pifo_write_latency=1, pifo_read_latency=1, initial_vc=0):
+        fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr,\
+        pifo_r_in_pipe, pifo_r_out_pipe, pifo_w_in_pipe, pifo_w_out_pipe,\
+        fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, \
+        pifo_write_latency=1, pifo_read_latency=1, initial_vc=0):
         super(Level, self).__init__(env, period)
         self.granularity = granularity
         self.fifo_num = fifo_num
@@ -26,17 +29,17 @@ class Level(HW_sim_object):
         
         # Initialize FIFO array and read/write handle
         
-        self.fifo_r_in_pipe_arr = []
-        self.fifo_r_out_pipe_arr = []
-        self.fifo_w_in_pipe_arr = []
-        self.fifo_w_out_pipe_arr = []
+        self.fifo_r_in_pipe_arr = fifo_r_in_pipe_arr
+        self.fifo_r_out_pipe_arr = fifo_r_out_pipe_arr
+        self.fifo_w_in_pipe_arr = fifo_w_in_pipe_arr
+        self.fifo_w_out_pipe_arr = fifo_w_out_pipe_arr
         
         index = 0
         while (index < self.fifo_num):
-            self.fifo_r_in_pipe_arr.append(simpy.Store(env))
-            self.fifo_r_out_pipe_arr.append(simpy.Store(env))
-            self.fifo_w_in_pipe_arr.append(simpy.Store(env))
-            self.fifo_w_out_pipe_arr.append(simpy.Store(env))
+            #self.fifo_r_in_pipe_arr.append(simpy.Store(env))
+            #self.fifo_r_out_pipe_arr.append(simpy.Store(env))
+            #self.fifo_w_in_pipe_arr.append(simpy.Store(env))
+            #self.fifo_w_out_pipe_arr.append(simpy.Store(env))
             
             new_fifo = FIFO(env, period, self.fifo_r_in_pipe_arr[index], self.fifo_r_out_pipe_arr[index], \
                 self.fifo_w_in_pipe_arr[index], self.fifo_w_out_pipe_arr[index], maxsize=self.fifo_size, \
@@ -47,10 +50,10 @@ class Level(HW_sim_object):
 
         # Initialize PIFO
 
-        self.pifo_r_in_pipe = simpy.Store(env)
-        self.pifo_r_out_pipe = simpy.Store(env)
-        self.pifo_w_in_pipe = simpy.Store(env)
-        self.pifo_w_out_pipe = simpy.Store(env)
+        self.pifo_r_in_pipe = pifo_r_in_pipe
+        self.pifo_r_out_pipe = pifo_r_out_pipe
+        self.pifo_w_in_pipe = pifo_w_in_pipe
+        self.pifo_w_out_pipe = pifo_w_out_pipe
 
         self.pifo = PIFO(env, period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, \
             self.pifo_w_out_pipe, maxsize=self.pifo_size, write_latency=self.pifo_write_latency, read_latency=self.pifo_read_latency, init_items=[])
