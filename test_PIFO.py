@@ -2,7 +2,8 @@
 
 import random
 import simpy
-from hwsim_utils import HW_sim_object, PIFO
+from hwsim_utils import *
+from scapy.all import *
 
 """
 Testbench for the PIFO object
@@ -35,23 +36,33 @@ class PIFO_tb(HW_sim_object):
         """
         State machine to push all test data then read it back
         """
-        data_words = random.sample(range(0, 20), 20)
+
+        # generate random pkts: TODO: is this okay?
+        pkt_list = []
+
+        for i in range(self.num_test_pkts):
+            pkt = Ether()/IP()/TCP()/'hello there pretty world!!!'
+            rank = random.sample(range(0, 10), 1)
+            pkt_id = i
+            tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
+            cur_pkt = Packet_descriptior(pkt, tuser) # TODO: what should be the address looks like
+            pkt_list.append(cur_pkt)
 
         # push all data
-        for word in data_words:
-            print ('@ {:04d} - pushed data word {}'.format(self.env.now, word))
-            self.pifo_w_in_pipe.put(word)
+        for pkt_des in pkt_list:
+            print ('@ {:04d} - pushed data word {}'.format(self.env.now, pkt_des))
+            self.pifo_w_in_pipe.put(pkt_des)
             ((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
             if popped_data_valid:
                 print ('@ {:04d} - popped data word {}'.format(self.env.now, popped_data))
             
 
         # pop all items
-        for i in range(min(self.pifo_maxsize,len(data_words))):
+        for i in range(min(self.pifo_maxsize,len(pkt_list))):
             # submit pop request (value in put is a don't care)
             self.pifo_r_in_pipe.put(1) 
-            word = yield self.pifo_r_out_pipe.get()
-            print ('@ {:04d} - popped data word {}'.format(self.env.now, word))
+            pkt_des = yield self.pifo_r_out_pipe.get()
+            print ('@ {:04d} - popped data word {}'.format(self.env.now, pkt_des))
 
 
 def main():
