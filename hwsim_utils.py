@@ -234,12 +234,8 @@ class PIFO(HW_sim_object):
                 popped_data_valid = 1
             # indicate write_completion
             if self.w_out_pipe is not None:
-                #if popped_data:
-                #    self.w_out_pipe.put(popped_data)
-                #    print ('popped_data: {0}'.format(popped_data))
-                #else:
-                    done = 1
-                    self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
+                done = 1
+                self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
 
     def pop_sm(self):
         """
