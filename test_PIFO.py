@@ -12,6 +12,9 @@ class PIFO_tb(HW_sim_object):
     def __init__(self, env, period):
         super(PIFO_tb, self).__init__(env, period)
 
+        # number of tesing packets
+        self.num_test_pkts = 20
+
         # create the pipes used for communication with the PIFO object
         self.pifo_r_in_pipe = simpy.Store(env)
         self.pifo_r_out_pipe = simpy.Store(env)
@@ -45,24 +48,27 @@ class PIFO_tb(HW_sim_object):
             rank = random.sample(range(0, 10), 1)
             pkt_id = i
             tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
-            cur_pkt = Packet_descriptior(pkt, tuser) # TODO: what should be the address looks like
+            cur_pkt = Packet_descriptior(pkt_id, tuser) # TODO: what should be the address looks like
+            # Anthony: address comes from the pkt_storage (managed by it). It's a number.
             pkt_list.append(cur_pkt)
 
         # push all data
+        print ('Start enquing packets')
         for pkt_des in pkt_list:
-            print ('@ {:04d} - pushed data word {}'.format(self.env.now, pkt_des))
+            print ('@ {:04d} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
             self.pifo_w_in_pipe.put(pkt_des)
             ((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
             if popped_data_valid:
-                print ('@ {:04d} - popped data word {}'.format(self.env.now, popped_data))
+                print ('@ {:04d} - popped pkt {} with rank = {}'.format(self.env.now, popped_data.get_uid(), popped_data.get_finish_time()))
             
 
         # pop all items
+        print ('Start dequing packets')
         for i in range(min(self.pifo_maxsize,len(pkt_list))):
             # submit pop request (value in put is a don't care)
             self.pifo_r_in_pipe.put(1) 
             pkt_des = yield self.pifo_r_out_pipe.get()
-            print ('@ {:04d} - popped data word {}'.format(self.env.now, pkt_des))
+            print ('@ {:04d} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
 
 
 def main():

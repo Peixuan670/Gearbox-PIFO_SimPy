@@ -385,6 +385,16 @@ class Base_level(HW_sim_object):
                 return top_pkt.getFinishTime()
             else:
                 return -1 # there is no pkt in this level
+    
+    def deque_earliest_pkt(self):
+        if self.fifos[self.cur_fifo].get_len():
+            return self.deque_fifo(self.cur_fifo)
+        else:
+            earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
+            if earliest_fifo > -1:
+                return self.deque_fifo(earliest_fifo)
+            else:
+                return -1 # there is no pkt in this level
 
     def update_vc(self, vc):
         # Update vc
