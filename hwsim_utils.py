@@ -4,6 +4,9 @@ from scapy.all import *
 import simpy
 from collections import OrderedDict
 
+PREAMBLE = 8
+IFG = 12
+
 class Tuser(object):
     def __init__(self, pkt_len, src_port, dst_port, rank, pkt_id):
         self.pkt_len = pkt_len
@@ -53,19 +56,30 @@ class AXI_S_message(object):
         return "{{tdata: {}, tvalid: {}, tkeep: {:08x}, tlast: {}, tuser: {} }}".format(''.join('{:02x}'.format(ord(c)) for c in self.tdata), self.tvalid, self.tkeep, self.tlast, self.tuser)
 
 class HW_sim_object(object):
-    def __init__(self, env, period):
+    def __init__(self, env, line_clk_period, sys_clk_period):
         self.env = env
-        self.period = period
+        self.line_clk_period = line_clk_period
+        self.sys_clk_period = sys_clk_period
+        self.PREAMBLE = PREAMBLE
+        self.IFG = IFG
 
-    def clock(self):
-        yield self.env.timeout(self.period)
+    def line_clk(self, clks):
+        for i in range(clks):
+            yield self.env.timeout(self.line_clk_period)
 
-    def wait_clock(self):
-        return self.env.process(self.clock())
+    def sys_clk(self, clks):
+        for i in range(clks):
+            yield self.env.timeout(self.sys_clk_period)
+
+    def wait_line_clks(self, clks):
+        return self.env.process(self.line_clk(clks))
+
+    def wait_sys_clks(self, clks):
+        return self.env.process(self.sys_clk(clks))
 
 class BRAM(HW_sim_object):
-    def __init__(self, env, period, r_in_pipe, r_out_pipe, w_in_pipe, w_out_pipe=None, depth=128, write_latency=1, read_latency=1):
-        super(BRAM, self).__init__(env, period)
+    def __init__(self, env, line_clk_period, sys_clk_period, r_in_pipe, r_out_pipe, w_in_pipe, w_out_pipe=None, depth=128, write_latency=1, read_latency=1):
+        super(BRAM, self).__init__(env, line_clk_period, sys_clk_period)
         self.r_in_pipe = r_in_pipe
         self.r_out_pipe = r_out_pipe
         self.w_in_pipe = w_in_pipe
@@ -94,8 +108,8 @@ class BRAM(HW_sim_object):
             # wait to receive incoming data
             (addr, data) = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # try to write data into memory
             if addr in self.mem.keys():
                 self.mem[addr] = data
@@ -115,8 +129,8 @@ class BRAM(HW_sim_object):
             # wait to receive a read request
             addr = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            #for i in range(self.read_latency):
+            yield self.wait_sys_clks(self.read_latency)
             # try to read data from memory
             if addr in self.mem.keys():
                 data = self.mem[addr]
@@ -154,8 +168,8 @@ class FIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # try to write data into FIFO
             if len(self.items) < self.maxsize:
                 self.items.append(data)
@@ -174,8 +188,8 @@ class FIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            #for i in range(self.read_latency):
+            yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
                 data = self.items[0]
@@ -221,25 +235,21 @@ class PIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # first enque the item
             self.items.append(data)
             # then insert in the correct position and shift (sorting)
-            for i in range(self.shift_latency):
-                yield self.wait_clock()
+            #for i in range(self.shift_latency):
+            yield self.wait_sys_clks(self.shift_latency)
             self.items.sort()
             if len(self.items) > self.maxsize : # Peixuan Q: what if len = maxsize, should we keep the data?
                 popped_data = self.items.pop(len(self.items)-1)
                 popped_data_valid = 1
             # indicate write_completion
             if self.w_out_pipe is not None:
-                #if popped_data:
-                #    self.w_out_pipe.put(popped_data)
-                #    print ('popped_data: {0}'.format(popped_data))
-                #else:
-                    done = 1
-                    self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
+                done = 1
+                self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
 
     def pop_sm(self):
         """
@@ -249,8 +259,8 @@ class PIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            # for i in range(self.read_latency):
+            yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
                 data = self.items[0]
@@ -283,7 +293,7 @@ class AXI_S_master(HW_sim_object):
         """
         while True:
             # wait for the next transmission
-            yield self.wait_clock()
+            yield self.wait_sys_clks(1)
 
             # send one word at a time
             if len(pkt_list) == 0:
@@ -315,7 +325,7 @@ class AXI_S_master(HW_sim_object):
             tlast = 0
             msg = AXI_S_message(tdata, tvalid, tkeep, tlast, tuser)
             self.out_pipe.put(msg)
-            yield self.wait_clock()
+            yield self.wait_sys_clks(1)
             pkt_str = pkt_str[self.bus_width:]
         # this is the last word of the packet
         tdata = pkt_str + '\x00'*(self.bus_width - len(pkt_str))
@@ -372,8 +382,8 @@ class out_reg(HW_sim_object):
             (val, ptrs) = yield self.ins_in_pipe.get()
             self.busy = 1
             self.next_valid = 0
-            for i in range(self.latency):
-                yield self.wait_clock()
+            #for i in range(self.latency):
+            yield self.wait_sys_clks(self.latency)
             # Room available in register, just add the entry to the register
             if self.num_entries < self.width:
                 self.val[self.num_entries] = val
@@ -411,7 +421,7 @@ class out_reg(HW_sim_object):
             self.next_valid = 0
 #            for i in range(self.latency):
 #                yield self.wait_clock()
-            yield self.wait_clock()
+            yield self.wait_sys_clks(1)
             # Find min value in register
             min_idx = self.val.index(min(self.val[:self.num_entries]))
             min_val = self.val[min_idx]
