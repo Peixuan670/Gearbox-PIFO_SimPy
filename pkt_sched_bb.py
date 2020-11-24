@@ -19,9 +19,9 @@ class Pkt_sched(HW_sim_object):
 
     def sched_enq(self):
         while True:
-            (head_seg_ptr, meta_ptr) = yield self.ptr_out_pipe.get()
-            self.ptr_list.append((head_seg_ptr, meta_ptr))
-            print ('@ {:.2f} - Enqueue: head_seg_ptr = {} , meta_ptr = {}'.format(self.env.now, head_seg_ptr, meta_ptr))
+            (head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
+            self.ptr_list.append((head_seg_ptr, meta_ptr, tuser))
+            print ('@ {:.2f} - Enqueue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
 
     def sched_deq(self):
         while True:
@@ -30,7 +30,7 @@ class Pkt_sched(HW_sim_object):
             yield self.wait_sys_clks(1)
             
             if len(self.ptr_list) > 0:
-                ((head_seg_ptr, meta_ptr)) = self.ptr_list.pop(0)
-                print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}'.format(self.env.now, head_seg_ptr, meta_ptr))
+                ((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
+                print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
                 # submit read request
                 self.ptr_in_pipe.put((head_seg_ptr, meta_ptr))
