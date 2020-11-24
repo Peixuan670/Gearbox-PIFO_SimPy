@@ -122,7 +122,11 @@ class GearboxII(HW_sim_object):
 
 
 
-    def migrate(self, level):
+    def migrate(self, level_index):
+        cur_level = self.levels[level_index]
+        while(cur_level.fifos[cur_fifo].get_len()):
+            pkt = cur_level.deque_fifo(cur_fifo)
+            self.enque(pkt)
 
     # Private
 
@@ -131,7 +135,14 @@ class GearboxII(HW_sim_object):
             index = 0
             while (index < self.level_num):
                 self.levels[index].update_vc(vc)
+                if index > 0:
+                    self.migrate(index)
+                    # start migrateing fifos each time when update vc
+                    # TODO: is this okay for higher level to migrate each time vc is updated?
+                    # TODO: how to achieve this in the back ground, start a new thread?
                 index = index + 1
+
+
         return
 
     # variable

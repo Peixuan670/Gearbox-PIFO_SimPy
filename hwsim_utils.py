@@ -301,6 +301,8 @@ class Base_level(HW_sim_object):
         self.fifo_write_latency = fifo_write_latency
         self.fifo_check_latency = fifo_check_latency
 
+        self.fifos = []
+
 
         # Initialize VC
 
@@ -358,11 +360,18 @@ class Base_level(HW_sim_object):
     
 
     def enque(self, pkt):
-        # TODO: what is such pkt, we only deal with the discriptor
-        fifo_index_offset = math.floor(pkt.getFinishTime() / self.granularity) - math.floor(self.vc / self.granularity)
-        # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
-        enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
-        self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
+        if not pkt == 0:
+            print("Enque pkt = {}".format(pkt))   # Peixuan debug
+            print("Enque pkt address = {}".format(pkt.get_address()))   # Peixuan debug
+            print("Enque pkt Tuser = {}".format(pkt.get_tuser))   # Peixuan debug
+            print("Enque pkt Finish time = {}".format(pkt.tuser.rank))   # Peixuan debug
+            # TODO: what is such pkt, we only deal with the discriptor
+            fifo_index_offset = math.floor(pkt.get_finish_time() / self.granularity) - math.floor(self.vc / self.granularity)
+            # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
+            enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
+            self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
+        else:
+            print("Illegal packet")
         return
 
     	
@@ -377,12 +386,12 @@ class Base_level(HW_sim_object):
     	# return time stamp from the head of PIFO
         if self.fifos[self.cur_fifo].get_len():
             top_pkt = self.fifos[self.cur_fifo].peek_front()
-            return top_pkt.getFinishTime()
+            return top_pkt.get_finish_time()
         else:
             earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
             if earliest_fifo > -1:
                 top_pkt = self.fifos[earliest_fifo].peek_front()
-                return top_pkt.getFinishTime()
+                return top_pkt.get_finish_time()
             else:
                 return -1 # there is no pkt in this level
     
@@ -412,7 +421,10 @@ class Packet_descriptior:
         self.tuser = tuser
     
     def get_finish_time(self): # rank
-        return self.tuser.rank
+        tuser = self.tuser
+        print("tuser = {}".format(tuser))
+        return tuser.rank
+        #return self.tuser.rank
     
     def set_finish_time(self, finish_time):
         self.tuser.rank = finish_time
