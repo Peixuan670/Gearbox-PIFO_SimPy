@@ -76,6 +76,8 @@ class BLevel_tb(HW_sim_object):
 
             #yield self.blevel.enque(pkt_des)
             self.blevel.enque(pkt_des)
+            for i in range(2):
+                yield self.wait_clock()
 
             #self.pifo_w_in_pipe.put(pkt_des)
             #((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
