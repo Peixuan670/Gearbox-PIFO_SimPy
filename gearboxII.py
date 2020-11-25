@@ -127,7 +127,8 @@ class GearboxII(HW_sim_object):
         while(cur_level.fifos[cur_fifo].get_len()):
             pkt = cur_level.deque_fifo(cur_fifo)
             self.enque(pkt)
-
+    # need a in pipe for the signal
+    
     # Private
 
     def update_vc(vc):
@@ -136,7 +137,8 @@ class GearboxII(HW_sim_object):
             while (index < self.level_num):
                 self.levels[index].update_vc(vc)
                 if index > 0:
-                    self.migrate(index)
+                    #self.env.process(self.migrate(index)) # env.provess is new thread
+                    #self.migrate(index)
                     # start migrateing fifos each time when update vc
                     # TODO: is this okay for higher level to migrate each time vc is updated?
                     # TODO: how to achieve this in the back ground, start a new thread?
@@ -144,6 +146,7 @@ class GearboxII(HW_sim_object):
 
 
         return
+    # Use a out pipe to send out the signal for starting migration
 
     # variable
 

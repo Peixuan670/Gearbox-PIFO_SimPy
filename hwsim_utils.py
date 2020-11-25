@@ -370,6 +370,7 @@ class Base_level(HW_sim_object):
             # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
             enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
             self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
+            yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
         else:
             print("Illegal packet")
         return

@@ -51,6 +51,8 @@ class Pkt_sched(HW_sim_object):
         self.env.process(self.sched_enq())
         self.env.process(self.sched_deq())
 
+        self.env.process(self.gearbox.migration()) # TODO: fix this
+
     def sched_enq(self):
         while True:
             (head_seg_ptr, meta_ptr) = yield self.ptr_out_pipe.get()

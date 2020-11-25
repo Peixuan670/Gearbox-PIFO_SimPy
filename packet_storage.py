@@ -2,6 +2,7 @@
 import sys, os
 from scapy.all import *
 import simpy
+import array
 from hwsim_utils import HW_sim_object, BRAM, Tuser, Fifo
 
 SEG_SIZE = 64 # bytes of packet data
@@ -21,10 +22,10 @@ class Pkt_segment(object):
 
 
 class Pkt_storage(HW_sim_object):
-    def __init__(self, env, period, pkt_in_pipe, pkt_out_pipe, ptr_in_pipe, ptr_out_pipe, max_segments=MAX_SEGMENTS, max_pkts=MAX_PKTS, rd_latency=1, wr_latency=1):
-        super(Pkt_storage, self).__init__(env, period)
+    def __init__(self, env, line_clk_period, sys_clk_period, pkt_in_pipe, pkt_out_pipe, ptr_in_pipe, ptr_out_pipe, max_segments=MAX_SEGMENTS, max_pkts=MAX_PKTS, rd_latency=1, wr_latency=1):
+        super(Pkt_storage, self).__init__(env, line_clk_period, sys_clk_period)
 
-        # read the incomming pkt and metadata from here
+        # read the incoming pkt and metadata from here
         self.pkt_in_pipe = pkt_in_pipe
         # write the outgoing pkt and metadata into here
         self.pkt_out_pipe = pkt_out_pipe
@@ -38,13 +39,13 @@ class Pkt_storage(HW_sim_object):
         self.segments_r_out_pipe = simpy.Store(env)
         self.segments_w_in_pipe = simpy.Store(env)
         # maps: segment ID --> Pkt_seg object
-        self.segments = BRAM(env, period, self.segments_r_in_pipe, self.segments_r_out_pipe, self.segments_w_in_pipe, depth=max_segments, write_latency=wr_latency, read_latency=rd_latency)
+        self.segments = BRAM(env, line_clk_period, sys_clk_period, self.segments_r_in_pipe, self.segments_r_out_pipe, self.segments_w_in_pipe, depth=max_segments, write_latency=wr_latency, read_latency=rd_latency)
 
         self.metadata_r_in_pipe = simpy.Store(env)
         self.metadata_r_out_pipe = simpy.Store(env)
         self.metadata_w_in_pipe = simpy.Store(env)
         # maps: metadata ptr --> tuser object
-        self.metadata = BRAM(env, period, self.metadata_r_in_pipe, self.metadata_r_out_pipe, self.metadata_w_in_pipe, depth=max_pkts, write_latency=wr_latency, read_latency=rd_latency)
+        self.metadata = BRAM(env, line_clk_period, sys_clk_period, self.metadata_r_in_pipe, self.metadata_r_out_pipe, self.metadata_w_in_pipe, depth=max_pkts, write_latency=wr_latency, read_latency=rd_latency)
 
         self.max_segments = max_segments
         self.max_pkts = max_pkts
@@ -78,7 +79,7 @@ class Pkt_storage(HW_sim_object):
 
 
     def insertion_sm(self):
-        """Constantly read the in_pipe and write incomming data into packet storage
+        """Constantly read the in_pipe and write incoming data into packet storage
            Items that come out of the in_pipe should be of the form: (scapy pkt, Tuser object)
            Reads:
              - self.pkt_in_pipe
@@ -88,7 +89,6 @@ class Pkt_storage(HW_sim_object):
         while True:
             # wait for a pkt to come in
             (pkt, tuser) = yield self.pkt_in_pipe.get() 
-
             # get a free metadata block
             meta_ptr = self.free_meta_list.pop()
             # get a free segment
@@ -102,19 +102,19 @@ class Pkt_storage(HW_sim_object):
             self.metadata_w_in_pipe.put((meta_ptr, tuser))
 
             # write the pkt into segments
-            pkt_str = str(pkt)
-            while len(pkt_str) > SEG_SIZE:
-                tdata = pkt_str[0:SEG_SIZE]
+            pkt_raw = raw(pkt)
+            while len(pkt_raw) > SEG_SIZE:
+                tdata = pkt_raw[0:SEG_SIZE]
                 next_seg_ptr = self.free_seg_list.pop()
                 # create the new segment
                 self.segments_w_in_pipe.put((cur_seg_ptr, Pkt_segment(tdata, next_seg_ptr)))
-                pkt_str = pkt_str[SEG_SIZE:]
-                cur_seg_ptr = next_seg_ptr 
-            tdata = pkt_str
+                pkt_raw = pkt_raw[SEG_SIZE:]
+                cur_seg_ptr = next_seg_ptr
+                yield self.wait_sys_clks(1)
+            tdata = pkt_raw
             next_seg_ptr = None
             # create the final segment for the packet
             self.segments_w_in_pipe.put((cur_seg_ptr, Pkt_segment(tdata, next_seg_ptr)))
-
 
     def removal_sm(self):
         """
@@ -134,7 +134,7 @@ class Pkt_storage(HW_sim_object):
             self.free_meta_list.push(meta_ptr) # add meta_ptr to free list
    
             # read the packet
-            pkt_str = ''
+            pkt_raw = array.array('B')
             cur_seg_ptr = head_seg_ptr
             while (cur_seg_ptr is not None):
                 # send the read request
@@ -142,13 +142,14 @@ class Pkt_storage(HW_sim_object):
                 # wait for response
                 pkt_seg = yield self.segments_r_out_pipe.get()
 
-                pkt_str += pkt_seg.tdata
+                pkt_raw.extend(pkt_seg.tdata)
                 # add segment to free list
                 self.free_seg_list.push(cur_seg_ptr)
                 cur_seg_ptr = pkt_seg.next_seg
+                yield self.wait_sys_clks(1)
     
             # reconstruct the final scapy packet
-            pkt = Ether(pkt_str)
+            pkt = Ether(pkt_raw)
             # Write the final pkt and metadata
             self.pkt_out_pipe.put((pkt, tuser))
 
