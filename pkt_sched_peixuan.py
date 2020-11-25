@@ -55,15 +55,15 @@ class Pkt_sched(HW_sim_object):
 
     def sched_enq(self):
         while True:
-            (head_seg_ptr, meta_ptr) = yield self.ptr_out_pipe.get()
-            cur_pkt = Packet_descriptior(head_seg_ptr, meta_ptr)
-            print("meta_ptr = {}".format(meta_ptr))   # Peixuan debug
-            print("meta_ptr.rank = {}".format(meta_ptr.rank))   # Peixuan debug
-            print("head_seg_ptr = {}".format(head_seg_ptr))   # Peixuan debug
-            print("cur_pkt = {}".format(cur_pkt))   # Peixuan debug
-            print("cur_pkt address = {}".format(cur_pkt.get_address()))   # Peixuan debug
-            print("cur_pkt Tuser = {}".format(cur_pkt.get_tuser))   # Peixuan debug
-            print("cur_pkt Finish time = {}".format(cur_pkt.tuser.rank))   # Peixuan debug
+            (head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
+            cur_pkt = Packet_descriptior(head_seg_ptr, tuser)
+            #print("meta_ptr = {}".format(meta_ptr))   # Peixuan debug
+            #print("meta_ptr.rank = {}".format(meta_ptr.rank))   # Peixuan debug
+            #print("head_seg_ptr = {}".format(head_seg_ptr))   # Peixuan debug
+            #print("cur_pkt = {}".format(cur_pkt))   # Peixuan debug
+            #print("cur_pkt address = {}".format(cur_pkt.get_address()))   # Peixuan debug
+            #print("cur_pkt Tuser = {}".format(cur_pkt.get_tuser))   # Peixuan debug
+            #print("cur_pkt Finish time = {}".format(cur_pkt.tuser.rank))   # Peixuan debug
             self.blevel.enque(cur_pkt)
             print ('@ {} - Enqueue: head_seg_ptr = {} , meta_ptr = {}'.format(self.env.now, head_seg_ptr, meta_ptr))
             self.pkt_cnt = self.pkt_cnt + 1

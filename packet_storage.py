@@ -95,8 +95,8 @@ class Pkt_storage(HW_sim_object):
             cur_seg_ptr = self.free_seg_list.pop()
 
             head_seg_ptr = cur_seg_ptr
-            # write the head_seg_ptr and meta_ptr so skip list can start insertion ASAP
-            self.ptr_out_pipe.put((head_seg_ptr, meta_ptr))
+            # write the head_seg_ptr, meta_ptr and tuser so scheduler can start enqueue ASAP
+            self.ptr_out_pipe.put((head_seg_ptr, meta_ptr, tuser))
 
             # write the metadata block into BRAM
             self.metadata_w_in_pipe.put((meta_ptr, tuser))
