@@ -1,28 +1,23 @@
-class Packet_discreptor:
+class Packet_descriptior:
+    # Tuser + headpointer as pkt
     def __init__(self, address, tuser):
         self.address = address
         self.tuser = tuser
     
-    def getFinishTime(self): # rank
-        return self.tuser.rank
+    def get_finish_time(self): # rank
+        tuser = self.tuser
+        print("tuser = {}".format(tuser))
+        return tuser.rank
+        #return self.tuser.rank
     
-    def setFinishTime(self, finish_time):
+    def set_finish_time(self, finish_time):
         self.tuser.rank = finish_time
     
-    def getAddress(self): # head ptr
+    def get_address(self): # head ptr
         return self.address
     
-    def getUid(self):
+    def get_uid(self):
         return self.tuser.pkt_id
     
-    def getTuser(self):
+    def get_tuser(self):
         return self.tuser
-
-'''
-    class pkt:
-    	finish_time
-    	address
-    	uid?
-    '''
-
-        
