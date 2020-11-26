@@ -4,13 +4,16 @@ import random
 import simpy
 from hwsim_utils import *
 from scapy.all import *
+from base_level import Base_level
+from packet import Packet_descriptior
+from queues import *
 
 """
 Testbench for the PIFO object
 """
 class BLevel_tb(HW_sim_object):
-    def __init__(self, env, period, fifo_num=10):
-        super(BLevel_tb, self).__init__(env, period)
+    def __init__(self, env, line_clk_period, sys_clk_period, fifo_num=10):
+        super(BLevel_tb, self).__init__(env, line_clk_period, sys_clk_period)
 
         self.fifo_num = fifo_num
 
@@ -40,7 +43,7 @@ class BLevel_tb(HW_sim_object):
         granularity = 1
         fifo_size = 128
 
-        self.blevel = Base_level(env, period, granularity, fifo_size, self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, \
+        self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, \
         self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
         fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
@@ -72,12 +75,12 @@ class BLevel_tb(HW_sim_object):
         # push all data
         print ('Start enquing packets')
         for pkt_des in pkt_list:
-            print ('@ {:04d} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
+            print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
 
             #yield self.blevel.enque(pkt_des)
             self.blevel.enque(pkt_des)
-            for i in range(2):
-                yield self.wait_clock()
+            #for i in range(2):
+            #    yield self.wait_clock()
 
             #self.pifo_w_in_pipe.put(pkt_des)
             #((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
@@ -90,17 +93,16 @@ class BLevel_tb(HW_sim_object):
         for i in range(len(pkt_list)):
             # submit pop request (value in put is a don't care)
             pkt_des = self.blevel.deque_earliest_pkt()
-            print ('@ {:04d} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
-
+            print ('@ {} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
 
 def main():
-    # create the simulation environment
-    env = simpy.Environment()
-    period = 1 # amount of simulation time / clock cycle
-    blevel_tb = BLevel_tb(env, period)
- 
-    # run the simulation for 100 simulation seconds (100 clock cycles)
-    env.run(until=100)
+    env = simpy.Environment(0.0)
+    line_clk_period = 0.1 * 8 # 0,1 ns/bit * 8 bits
+    sys_clk_period = 5 # ns (200 MHz)
+    # instantiate the testbench
+    blevel_tb = BLevel_tb(env, line_clk_period, sys_clk_period)
+    # run the simulation 
+    env.run(until=1000)
 
 
 if __name__ == "__main__":

@@ -2,8 +2,7 @@
 
 import random
 import simpy
-from hwsim_utils import *
-from scapy.all import *
+from hwsim_utils import HW_sim_object, PIFO
 
 """
 Testbench for the PIFO object
@@ -11,9 +10,6 @@ Testbench for the PIFO object
 class PIFO_tb(HW_sim_object):
     def __init__(self, env, period):
         super(PIFO_tb, self).__init__(env, period)
-
-        # number of tesing packets
-        self.num_test_pkts = 20
 
         # create the pipes used for communication with the PIFO object
         self.pifo_r_in_pipe = simpy.Store(env)
@@ -39,36 +35,23 @@ class PIFO_tb(HW_sim_object):
         """
         State machine to push all test data then read it back
         """
-
-        # generate random pkts: TODO: is this okay?
-        pkt_list = []
-
-        for i in range(self.num_test_pkts):
-            pkt = Ether()/IP()/TCP()/'hello there pretty world!!!'
-            rank = random.sample(range(0, 10), 1)
-            pkt_id = i
-            tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
-            cur_pkt = Packet_descriptior(pkt_id, tuser) # TODO: what should be the address looks like
-            # Anthony: address comes from the pkt_storage (managed by it). It's a number.
-            pkt_list.append(cur_pkt)
+        data_words = random.sample(range(0, 20), 20)
 
         # push all data
-        print ('Start enquing packets')
-        for pkt_des in pkt_list:
-            print ('@ {:04d} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
-            self.pifo_w_in_pipe.put(pkt_des)
+        for word in data_words:
+            print ('@ {:04d} - pushed data word {}'.format(self.env.now, word))
+            self.pifo_w_in_pipe.put(word)
             ((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
             if popped_data_valid:
-                print ('@ {:04d} - popped pkt {} with rank = {}'.format(self.env.now, popped_data.get_uid(), popped_data.get_finish_time()))
+                print ('@ {:04d} - popped data word {}'.format(self.env.now, popped_data))
             
 
         # pop all items
-        print ('Start dequing packets')
-        for i in range(min(self.pifo_maxsize,len(pkt_list))):
+        for i in range(min(self.pifo_maxsize,len(data_words))):
             # submit pop request (value in put is a don't care)
             self.pifo_r_in_pipe.put(1) 
-            pkt_des = yield self.pifo_r_out_pipe.get()
-            print ('@ {:04d} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
+            word = yield self.pifo_r_out_pipe.get()
+            print ('@ {:04d} - popped data word {}'.format(self.env.now, word))
 
 
 def main():

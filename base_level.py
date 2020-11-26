@@ -1,13 +1,16 @@
 import math
+from hwsim_utils import *
+from packet import Packet_descriptior
+from queues import FIFO, PIFO
 
 # Peixuan 11122020
 # This is the base level (level 0), no pifo
 class Base_level(HW_sim_object):
 	# Public
-    def __init__(self, env, period, granularity, fifo_size, fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, \
+    def __init__(self, env, line_clk_period, sys_clk_period, granularity, fifo_size, fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, \
         fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
         fifo_check_latency=1, fifo_num=10, initial_vc=0):
-        super(Base_level, self).__init__(env, period)
+        super(Base_level, self).__init__(env, line_clk_period, sys_clk_period)
         self.granularity = granularity
         self.fifo_num = fifo_num
         self.fifo_size = fifo_size
@@ -37,10 +40,11 @@ class Base_level(HW_sim_object):
             #self.fifo_r_out_pipe_arr.append(simpy.Store(env))
             #self.fifo_w_in_pipe_arr.append(simpy.Store(env))
             #self.fifo_w_out_pipe_arr.append(simpy.Store(env))
+            init_items = []
             
-            new_fifo = FIFO(env, period, self.fifo_r_in_pipe_arr[index], self.fifo_r_out_pipe_arr[index], \
-                self.fifo_w_in_pipe_arr[index], self.fifo_w_out_pipe_arr[index], maxsize=self.fifo_size, \
-                    write_latency=self.fifo_write_latency, read_latency=self.fifo_read_latency, init_items=[])
+            new_fifo = FIFO(env, line_clk_period, sys_clk_period, self.fifo_r_in_pipe_arr[index], self.fifo_r_out_pipe_arr[index], \
+                self.fifo_w_in_pipe_arr[index], self.fifo_w_out_pipe_arr[index], self.fifo_size, \
+                    self.fifo_write_latency, self.fifo_read_latency, init_items)
             self.fifos.append(new_fifo) 
 
             index = index + 1

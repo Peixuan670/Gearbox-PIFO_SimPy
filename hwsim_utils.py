@@ -2,8 +2,10 @@
 import sys, os
 from scapy.all import *
 import simpy
-import math
 from collections import OrderedDict
+
+PREAMBLE = 8
+IFG = 12
 
 class Tuser(object):
     def __init__(self, pkt_len, src_port, dst_port, rank, pkt_id):
@@ -54,19 +56,30 @@ class AXI_S_message(object):
         return "{{tdata: {}, tvalid: {}, tkeep: {:08x}, tlast: {}, tuser: {} }}".format(''.join('{:02x}'.format(ord(c)) for c in self.tdata), self.tvalid, self.tkeep, self.tlast, self.tuser)
 
 class HW_sim_object(object):
-    def __init__(self, env, period):
+    def __init__(self, env, line_clk_period, sys_clk_period):
         self.env = env
-        self.period = period
+        self.line_clk_period = line_clk_period
+        self.sys_clk_period = sys_clk_period
+        self.PREAMBLE = PREAMBLE
+        self.IFG = IFG
 
-    def clock(self):
-        yield self.env.timeout(self.period)
+    def line_clk(self, clks):
+        for i in range(clks):
+            yield self.env.timeout(self.line_clk_period)
 
-    def wait_clock(self):
-        return self.env.process(self.clock())
+    def sys_clk(self, clks):
+        for i in range(clks):
+            yield self.env.timeout(self.sys_clk_period)
+
+    def wait_line_clks(self, clks):
+        return self.env.process(self.line_clk(clks))
+
+    def wait_sys_clks(self, clks):
+        return self.env.process(self.sys_clk(clks))
 
 class BRAM(HW_sim_object):
-    def __init__(self, env, period, r_in_pipe, r_out_pipe, w_in_pipe, w_out_pipe=None, depth=128, write_latency=1, read_latency=1):
-        super(BRAM, self).__init__(env, period)
+    def __init__(self, env, line_clk_period, sys_clk_period, r_in_pipe, r_out_pipe, w_in_pipe, w_out_pipe=None, depth=128, write_latency=1, read_latency=1):
+        super(BRAM, self).__init__(env, line_clk_period, sys_clk_period)
         self.r_in_pipe = r_in_pipe
         self.r_out_pipe = r_out_pipe
         self.w_in_pipe = w_in_pipe
@@ -95,8 +108,8 @@ class BRAM(HW_sim_object):
             # wait to receive incoming data
             (addr, data) = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # try to write data into memory
             if addr in self.mem.keys():
                 self.mem[addr] = data
@@ -116,8 +129,8 @@ class BRAM(HW_sim_object):
             # wait to receive a read request
             addr = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            #for i in range(self.read_latency):
+            yield self.wait_sys_clks(self.read_latency)
             # try to read data from memory
             if addr in self.mem.keys():
                 data = self.mem[addr]
@@ -155,8 +168,8 @@ class FIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # try to write data into FIFO
             if len(self.items) < self.maxsize:
                 self.items.append(data)
@@ -175,8 +188,8 @@ class FIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            #for i in range(self.read_latency):
+            yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
                 data = self.items[0]
@@ -189,19 +202,6 @@ class FIFO(HW_sim_object):
 
     def __str__(self):
         return str(self.items)
-
-    # TODO: get_len()? is_empty()?
-
-    def get_len(self):
-        return len(self.items)
-    
-    def peek_front(self):
-        if len(self.items):
-            return self.items[0]
-        else:
-            return 0
-    
-
 
 # Peixuan 10292020
 class PIFO(HW_sim_object):
@@ -235,26 +235,21 @@ class PIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # first enque the item
             self.items.append(data)
             # then insert in the correct position and shift (sorting)
-            for i in range(self.shift_latency):
-                yield self.wait_clock()
-            #self.items.sort()
-            self.items = sorted(self.items, key=lambda pkt: pkt.get_finish_time())
+            #for i in range(self.shift_latency):
+            yield self.wait_sys_clks(self.shift_latency)
+            self.items.sort()
             if len(self.items) > self.maxsize : # Peixuan Q: what if len = maxsize, should we keep the data?
                 popped_data = self.items.pop(len(self.items)-1)
                 popped_data_valid = 1
             # indicate write_completion
             if self.w_out_pipe is not None:
-                #if popped_data:
-                #    self.w_out_pipe.put(popped_data)
-                #    print ('popped_data: {0}'.format(popped_data))
-                #else:
-                    done = 1
-                    self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
+                done = 1
+                self.w_out_pipe.put((done, popped_data, popped_data_valid)) # tuple
 
     def pop_sm(self):
         """
@@ -264,8 +259,8 @@ class PIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            # for i in range(self.read_latency):
+            yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
                 data = self.items[0]
@@ -278,167 +273,6 @@ class PIFO(HW_sim_object):
 
     def __str__(self):
         return str(self.items)
-    
-    def peek_front(self):
-        if len(self.items):
-            return self.items[0]
-        else:
-            return 0
-
-# Peixuan 11122020
-# This is the base level (level 0), no pifo
-class Base_level(HW_sim_object):
-	# Public
-    def __init__(self, env, period, granularity, fifo_size, fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, \
-        fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
-        fifo_check_latency=1, fifo_num=10, initial_vc=0):
-        super(Base_level, self).__init__(env, period)
-        self.granularity = granularity
-        self.fifo_num = fifo_num
-        self.fifo_size = fifo_size
-
-        self.fifo_read_latency = fifo_read_latency
-        self.fifo_write_latency = fifo_write_latency
-        self.fifo_check_latency = fifo_check_latency
-
-        self.fifos = []
-
-
-        # Initialize VC
-
-        self.vc = initial_vc
-        self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num
-        
-        # Initialize FIFO array and read/write handle
-        
-        self.fifo_r_in_pipe_arr = fifo_r_in_pipe_arr
-        self.fifo_r_out_pipe_arr = fifo_r_out_pipe_arr
-        self.fifo_w_in_pipe_arr = fifo_w_in_pipe_arr
-        self.fifo_w_out_pipe_arr = fifo_w_out_pipe_arr
-        
-        index = 0
-        while (index < self.fifo_num):
-            #self.fifo_r_in_pipe_arr.append(simpy.Store(env))
-            #self.fifo_r_out_pipe_arr.append(simpy.Store(env))
-            #self.fifo_w_in_pipe_arr.append(simpy.Store(env))
-            #self.fifo_w_out_pipe_arr.append(simpy.Store(env))
-            
-            new_fifo = FIFO(env, period, self.fifo_r_in_pipe_arr[index], self.fifo_r_out_pipe_arr[index], \
-                self.fifo_w_in_pipe_arr[index], self.fifo_w_out_pipe_arr[index], maxsize=self.fifo_size, \
-                    write_latency=self.fifo_write_latency, read_latency=self.fifo_read_latency, init_items=[])
-            self.fifos.append(new_fifo) 
-
-            index = index + 1
-
-    # Private
-
-    # Methods
-
-    def find_next_non_empty_fifo(self, index):
-    	# find the next non-empty fifo next to fifo[index]
-        # model check latency
-        for i in range(self.fifo_check_latency):
-            yield self.wait_clock()
-        
-        cur_fifo_index = index
-        while ():
-            cur_fifo_index = cur_fifo_index + 1
-            if (cur_fifo_index is self.fifo_num):
-                # recirculate if go to the back of the level
-                cur_fifo_index = 0
-
-            if (cur_fifo_index is index):
-                return -1 # this means all the fifos are empty
-            else:
-                if self.fifos[cur_fifo_index].get_len(): # TODO can I do this here? Non-zero as true?
-                    return cur_fifo_index
-        return
-
-
-    # Public
-
-    
-
-    def enque(self, pkt):
-        if not pkt == 0:
-            print("Enque pkt = {}".format(pkt))   # Peixuan debug
-            print("Enque pkt address = {}".format(pkt.get_address()))   # Peixuan debug
-            print("Enque pkt Tuser = {}".format(pkt.get_tuser))   # Peixuan debug
-            print("Enque pkt Finish time = {}".format(pkt.tuser.rank))   # Peixuan debug
-            # TODO: what is such pkt, we only deal with the discriptor
-            fifo_index_offset = math.floor(pkt.get_finish_time() / self.granularity) - math.floor(self.vc / self.granularity)
-            # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
-            enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
-            self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
-            yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-        else:
-            print("Illegal packet")
-        return
-
-    	
-
-    def deque_fifo(self, fifo_index):
-    	# deque packet from sepecific fifo, when migrating packets
-        self.fifo_r_in_pipe_arr[fifo_index].put(1) 
-        dequed_pkt = yield self.fifo_r_out_pipe_arr[fifo_index].get()
-        return dequed_pkt
-
-    def get_earliest_pkt_timestamp(self):
-    	# return time stamp from the head of PIFO
-        if self.fifos[self.cur_fifo].get_len():
-            top_pkt = self.fifos[self.cur_fifo].peek_front()
-            return top_pkt.get_finish_time()
-        else:
-            earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
-            if earliest_fifo > -1:
-                top_pkt = self.fifos[earliest_fifo].peek_front()
-                return top_pkt.get_finish_time()
-            else:
-                return -1 # there is no pkt in this level
-    
-    def deque_earliest_pkt(self):
-        if self.fifos[self.cur_fifo].get_len():
-            return self.deque_fifo(self.cur_fifo)
-        else:
-            earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
-            if earliest_fifo > -1:
-                return self.deque_fifo(earliest_fifo)
-            else:
-                return -1 # there is no pkt in this level
-
-    def update_vc(self, vc):
-        # Update vc
-        if self.vc < vc:
-            self.vc = vc
-        # update current serving fifo
-        if self.fifos[self.cur_fifo].get_len() is 0:
-            self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
-        return self.vc
-
-class Packet_descriptior:
-    # Tuser + headpointer as pkt
-    def __init__(self, address, tuser):
-        self.address = address
-        self.tuser = tuser
-    
-    def get_finish_time(self): # rank
-        tuser = self.tuser
-        print("tuser = {}".format(tuser))
-        return tuser.rank
-        #return self.tuser.rank
-    
-    def set_finish_time(self, finish_time):
-        self.tuser.rank = finish_time
-    
-    def get_address(self): # head ptr
-        return self.address
-    
-    def get_uid(self):
-        return self.tuser.pkt_id
-    
-    def get_tuser(self):
-        return self.tuser
-
 
 class AXI_S_master(HW_sim_object):
     def __init__(self, env, period, out_pipe, bus_width, pkt_list):
@@ -459,7 +293,7 @@ class AXI_S_master(HW_sim_object):
         """
         while True:
             # wait for the next transmission
-            yield self.wait_clock()
+            yield self.wait_sys_clks(1)
 
             # send one word at a time
             if len(pkt_list) == 0:
@@ -491,7 +325,7 @@ class AXI_S_master(HW_sim_object):
             tlast = 0
             msg = AXI_S_message(tdata, tvalid, tkeep, tlast, tuser)
             self.out_pipe.put(msg)
-            yield self.wait_clock()
+            yield self.wait_sys_clks(1)
             pkt_str = pkt_str[self.bus_width:]
         # this is the last word of the packet
         tdata = pkt_str + '\x00'*(self.bus_width - len(pkt_str))
@@ -548,8 +382,8 @@ class out_reg(HW_sim_object):
             (val, ptrs) = yield self.ins_in_pipe.get()
             self.busy = 1
             self.next_valid = 0
-            for i in range(self.latency):
-                yield self.wait_clock()
+            #for i in range(self.latency):
+            yield self.wait_sys_clks(self.latency)
             # Room available in register, just add the entry to the register
             if self.num_entries < self.width:
                 self.val[self.num_entries] = val
@@ -587,7 +421,7 @@ class out_reg(HW_sim_object):
             self.next_valid = 0
 #            for i in range(self.latency):
 #                yield self.wait_clock()
-            yield self.wait_clock()
+            yield self.wait_sys_clks(1)
             # Find min value in register
             min_idx = self.val.index(min(self.val[:self.num_entries]))
             min_val = self.val[min_idx]
