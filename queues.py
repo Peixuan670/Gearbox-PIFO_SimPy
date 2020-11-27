@@ -27,8 +27,8 @@ class FIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            #for i in range(self.write_latency):
+            yield self.wait_sys_clks(self.write_latency)
             # try to write data into FIFO
             if len(self.items) < self.maxsize:
                 self.items.append(data)

@@ -14,6 +14,7 @@ Testbench for the PIFO object
 class BLevel_tb(HW_sim_object):
     def __init__(self, env, line_clk_period, sys_clk_period, fifo_num=10):
         super(BLevel_tb, self).__init__(env, line_clk_period, sys_clk_period)
+        self.enq_pipe = simpy.Store(env)
 
         self.fifo_num = fifo_num
 
@@ -43,7 +44,7 @@ class BLevel_tb(HW_sim_object):
         granularity = 1
         fifo_size = 128
 
-        self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, \
+        self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, self.enq_pipe, self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, \
         self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
         fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
@@ -78,7 +79,8 @@ class BLevel_tb(HW_sim_object):
             print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
 
             #yield self.blevel.enque(pkt_des)
-            self.blevel.enque(pkt_des)
+            #self.blevel.enque(pkt_des)
+            self.enq_pipe.put(pkt_des)
             #for i in range(2):
             #    yield self.wait_clock()
 
@@ -89,11 +91,13 @@ class BLevel_tb(HW_sim_object):
             
 
         # pop all items
-        print ('Start dequing packets')
-        for i in range(len(pkt_list)):
+        #print ('Start dequing packets')
+        #for i in range(len(pkt_list)):
             # submit pop request (value in put is a don't care)
-            pkt_des = self.blevel.deque_earliest_pkt()
-            print ('@ {} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
+            #pkt_des = self.blevel.deque_earliest_pkt()
+            #print ('@ {} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
+ 
+        yield self.env.timeout(1)
 
 def main():
     env = simpy.Environment(0.0)

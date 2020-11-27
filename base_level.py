@@ -7,20 +7,19 @@ from queues import FIFO, PIFO
 # This is the base level (level 0), no pifo
 class Base_level(HW_sim_object):
 	# Public
-    def __init__(self, env, line_clk_period, sys_clk_period, granularity, fifo_size, fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, \
+    def __init__(self, env, line_clk_period, sys_clk_period, granularity, fifo_size, enq_pipe, fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, \
         fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
         fifo_check_latency=1, fifo_num=10, initial_vc=0):
         super(Base_level, self).__init__(env, line_clk_period, sys_clk_period)
         self.granularity = granularity
         self.fifo_num = fifo_num
         self.fifo_size = fifo_size
-
+        self.enq_pipe = enq_pipe
         self.fifo_read_latency = fifo_read_latency
         self.fifo_write_latency = fifo_write_latency
         self.fifo_check_latency = fifo_check_latency
 
         self.fifos = []
-
 
         # Initialize VC
 
@@ -48,6 +47,11 @@ class Base_level(HW_sim_object):
             self.fifos.append(new_fifo) 
 
             index = index + 1
+            
+        self.run()
+
+    def run(self):
+        self.env.process(self.enqueue_p())
 
     # Private
 
@@ -76,23 +80,25 @@ class Base_level(HW_sim_object):
 
     # Public
 
-    
 
-    def enque(self, pkt):
-        if not pkt == 0:
-            print("Enque pkt = {}".format(pkt))   # Peixuan debug
-            print("Enque pkt address = {}".format(pkt.get_address()))   # Peixuan debug
-            print("Enque pkt Tuser = {}".format(pkt.get_tuser))   # Peixuan debug
-            print("Enque pkt Finish time = {}".format(pkt.tuser.rank))   # Peixuan debug
-            # TODO: what is such pkt, we only deal with the discriptor
-            fifo_index_offset = math.floor(pkt.get_finish_time() / self.granularity) - math.floor(self.vc / self.granularity)
-            # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
-            enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
-            self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
-            yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-        else:
-            print("Illegal packet")
-        return
+    def enqueue_p(self):
+        while True:
+            pkt = yield self.enq_pipe.get() 
+            if not pkt == 0:
+                print("Enque pkt = {}".format(pkt))   # Peixuan debug
+                #print("Enque pkt address = {}".format(pkt.get_address()))   # Peixuan debug
+                #print("Enque pkt Tuser = {}".format(pkt.get_tuser))   # Peixuan debug
+                #print("Enque pkt Finish time = {}".format(pkt.tuser.rank))   # Peixuan debug
+                # TODO: what is such pkt, we only deal with the discriptor
+                fifo_index_offset = math.floor(pkt.get_finish_time() / self.granularity) - math.floor(self.vc / self.granularity)
+                # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
+                enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
+                self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
+                print ('enq @ {:.2f} pkt enq'.format(self.env.now))
+                yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
+                print ('enq @ {:.2f} FIFO done'.format(self.env.now))
+            else:
+                print("Illegal packet")
 
     	
 
@@ -130,6 +136,6 @@ class Base_level(HW_sim_object):
         if self.vc < vc:
             self.vc = vc
         # update current serving fifo
-        if self.fifos[self.cur_fifo].get_len() is 0:
+        if self.fifos[self.cur_fifo].get_len() == 0:
             self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
         return self.vc
