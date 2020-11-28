@@ -14,8 +14,10 @@ Testbench for the PIFO object
 class BLevel_tb(HW_sim_object):
     def __init__(self, env, line_clk_period, sys_clk_period, fifo_num=10):
         super(BLevel_tb, self).__init__(env, line_clk_period, sys_clk_period)
-        self.enq_pipe = simpy.Store(env)
-
+        self.enq_pipe_cmd = simpy.Store(env)
+        self.enq_pipe_sts = simpy.Store(env)
+        self.deq_pipe_req = simpy.Store(env)
+        self.deq_pipe_dat = simpy.Store(env)
         self.fifo_num = fifo_num
 
         # number of tesing packets
@@ -44,8 +46,10 @@ class BLevel_tb(HW_sim_object):
         granularity = 1
         fifo_size = 128
 
-        self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, self.enq_pipe, self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, \
-        self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, fifo_write_latency=1, fifo_read_latency=1, \
+        self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, \
+                        self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
+                        self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
+                        fifo_write_latency=1, fifo_read_latency=1, \
         fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
         self.run()
@@ -76,14 +80,12 @@ class BLevel_tb(HW_sim_object):
         # push all data
         print ('Start enquing packets')
         for pkt_des in pkt_list:
-            print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
+            print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
 
             #yield self.blevel.enque(pkt_des)
             #self.blevel.enque(pkt_des)
-            self.enq_pipe.put(pkt_des)
-            #for i in range(2):
-            #    yield self.wait_clock()
-
+            self.enq_pipe_cmd.put(pkt_des)
+            yield self.enq_pipe_sts.get()
             #self.pifo_w_in_pipe.put(pkt_des)
             #((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
             #if popped_data_valid:
@@ -91,11 +93,13 @@ class BLevel_tb(HW_sim_object):
             
 
         # pop all items
-        #print ('Start dequing packets')
-        #for i in range(len(pkt_list)):
+        print ('Start dequing packets')
+        for i in range(len(pkt_list)):
             # submit pop request (value in put is a don't care)
             #pkt_des = self.blevel.deque_earliest_pkt()
-            #print ('@ {} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time()))
+            self.deq_pipe_req.put(1)
+            pkt_des = yield self.deq_pipe_dat.get()
+            print ('@ {} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
  
         yield self.env.timeout(1)
 

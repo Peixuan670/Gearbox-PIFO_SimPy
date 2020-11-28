@@ -4,9 +4,10 @@ class Packet_descriptior:
         self.address = address
         self.tuser = tuser
     
-    def get_finish_time(self): # rank
+    def get_finish_time(self, debug): # rank
         tuser = self.tuser
-        print("tuser = {}".format(tuser))
+        if debug:
+            print("tuser = {}".format(tuser))
         return tuser.rank
         #return self.tuser.rank
     

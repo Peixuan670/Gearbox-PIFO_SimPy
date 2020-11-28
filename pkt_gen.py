@@ -27,7 +27,7 @@ class Pkt_gen(HW_sim_object):
             rank = random.sample(range(0, 100), 1)[0]
             pkt_id = i
             tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
-            print ('@ {:.2f} - Send:    {} || {}'.format(self.env.now, pkt.summary(), tuser))
+            #print ('@ {:.2f} - Send:    {} || {}'.format(self.env.now, pkt.summary(), tuser))
             # write the pkt and metadata into storage
             self.pkt_in_pipe.put((pkt, tuser))
 

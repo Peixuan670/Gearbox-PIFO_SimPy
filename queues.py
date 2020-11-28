@@ -47,8 +47,9 @@ class FIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            #for i in range(self.read_latency):
+            #    yield self.wait_clock()
+            yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
                 data = self.items[0]
