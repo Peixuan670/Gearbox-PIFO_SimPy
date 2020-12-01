@@ -9,6 +9,7 @@ class Base_level(HW_sim_object):
     # Public
     def __init__(self, env, line_clk_period, sys_clk_period, granularity, fifo_size, \
                  enq_pipe_cmd, enq_pipe_sts, deq_pipe_req, deq_pipe_dat, \
+                 find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
                  fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, \
                  fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0):
                  
@@ -20,6 +21,8 @@ class Base_level(HW_sim_object):
         self.enq_pipe_sts = enq_pipe_sts
         self.deq_pipe_req = deq_pipe_req
         self.deq_pipe_dat = deq_pipe_dat
+        self.find_earliest_fifo_pipe_req = find_earliest_fifo_pipe_req
+        self.find_earliest_fifo_pipe_dat = find_earliest_fifo_pipe_dat
         self.fifo_read_latency = fifo_read_latency
         self.fifo_write_latency = fifo_write_latency
         self.fifo_check_latency = fifo_check_latency
@@ -57,35 +60,26 @@ class Base_level(HW_sim_object):
 
     def run(self):
         self.env.process(self.enqueue_p())
-        self.env.process(self.dequeue_earliest_pkt_p())
-
-    # Private
-
-    # Methods
-
-    def find_next_non_empty_fifo(self, index):
-        # find the next non-empty fifo next to fifo[index]
-        # ***** TODO: cannot mix return and yield statements.  if we need to model latency,
-        # ***** we have to make this a generator (process) and communicate with it using pipes
-        # model check latency
-        #for i in range(self.fifo_check_latency):
-        #    yield self.wait_clock()
-        cur_fifo_index = index
-        while True:
-            cur_fifo_index = cur_fifo_index + 1
-            if (cur_fifo_index == self.fifo_num):
-                # recirculate if go to the back of the level
-                cur_fifo_index = 0
-
-            if (cur_fifo_index == index):
-                return -1 # this means all the fifos are empty
-            else:
-                if self.fifos[cur_fifo_index].get_len(): # TODO can I do this here? Non-zero as true?
-                    return cur_fifo_index
-        return
-
+        self.env.process(self.dequeue_p())
 
     # Public
+    
+    def find_next_non_empty_fifo_p(self):
+        
+        while True:
+            index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
+            cur_fifo_index = index + 1
+            while True:
+                if (cur_fifo_index == self.fifo_num):
+                    # recirculate if go to the back of the level
+                    cur_fifo_index = 0
+
+                if (cur_fifo_index == index):
+                    self.find_earliest_fifo_pipe_dat.put(-1) # this means all the fifos are empty
+                else:
+                    if self.fifos[cur_fifo_index].get_len(): # TODO can I do this here? Non-zero as true?
+                        self.find_earliest_fifo_pipe_dat.put(cur_fifo_index)
+                cur_fifo_index = cur_fifo_index + 1
 
 
     def enqueue_p(self):
@@ -113,7 +107,7 @@ class Base_level(HW_sim_object):
         return dequed_pkt
     """
     
-    def get_earliest_pkt_timestamp(self):
+    def get_earliest_pkt_timestamp(self): # TODO: this is put into higher level
         # return time stamp from the head of PIFO
         if self.fifos[self.cur_fifo].get_len():
             top_pkt = self.fifos[self.cur_fifo].peek_front()
@@ -125,26 +119,23 @@ class Base_level(HW_sim_object):
                 return top_pkt.get_finish_time()
             else:
                 return -1 # there is no pkt in this level
-    
-#    def deque_earliest_pkt(self):
-    def dequeue_earliest_pkt_p(self):
-        while True:
-            yield self.deq_pipe_req.get()
-            if self.fifos[self.cur_fifo].get_len():
-                fifo_index = self.cur_fifo
-            else:
-                earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
-                if earliest_fifo > -1:
-                    fifo_index = earliest_fifo
-                else:
-                    #return -1 # there is no pkt in this level
-                    #***** TODO: fix this - pipe should have only packets *****
-                    self.deq_pipe_dat.put(-1) # there is no pkt in this level
 
-            # request FIFO read
-            self.fifo_r_in_pipe_arr[fifo_index].put(1) 
-            dequed_pkt = yield self.fifo_r_out_pipe_arr[fifo_index].get()
-            self.deq_pipe_dat.put(dequed_pkt)
+    def dequeue_p(self):
+        # request includes queue index to deque:
+        # queue_index = -1: PIFO
+        # queue_index >= 0: FIFO
+        while True:
+            index = yield self.deq_pipe_req.get()
+            if index == -1: 
+                # deque PIFO
+                print("Error: No PIFO in the base level")
+            else: 
+                # deque FIFO[index]
+                if self.deq_pipe_dat is not None:
+                self.fifo_r_in_pipe_arr[fifo_index].put(1)
+                dequed_pkt = yield self.fifo_r_out_pipe_arr[fifo_index].get()
+                self.deq_pipe_dat.put(dequed_pkt)
+
 
     def update_vc(self, vc):
         # Update vc
