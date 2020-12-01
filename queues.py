@@ -27,7 +27,6 @@ class FIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            #for i in range(self.write_latency):
             yield self.wait_sys_clks(self.write_latency)
             # try to write data into FIFO
             if len(self.items) < self.maxsize:
@@ -47,8 +46,6 @@ class FIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            #for i in range(self.read_latency):
-            #    yield self.wait_clock()
             yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
@@ -69,7 +66,7 @@ class FIFO(HW_sim_object):
         return len(self.items)
     
     def peek_front(self):
-        if len(self.items):
+        if not len(self.items) == 0:
             return self.items[0]
         else:
             return 0
@@ -108,14 +105,11 @@ class PIFO(HW_sim_object):
             # wait to receive incoming data
             data = yield self.w_in_pipe.get()
             # model write latency
-            for i in range(self.write_latency):
-                yield self.wait_clock()
+            yield self.wait_sys_clks(self.write_latency)
             # first enque the item
             self.items.append(data)
             # then insert in the correct position and shift (sorting)
-            for i in range(self.shift_latency):
-                yield self.wait_clock()
-            #self.items.sort()
+            yield self.wait_sys_clks(self.shift_latency)
             self.items = sorted(self.items, key=lambda pkt: pkt.get_finish_time())
             if len(self.items) > self.maxsize : # Peixuan Q: what if len = maxsize, should we keep the data?
                 popped_data = self.items.pop(len(self.items)-1)
@@ -137,8 +131,7 @@ class PIFO(HW_sim_object):
             # wait to receive a read request
             req = yield self.r_in_pipe.get()
             # model read latency
-            for i in range(self.read_latency):
-                yield self.wait_clock()
+            yield self.wait_sys_clks(self.read_latency)
             # try to read head element
             if len(self.items) > 0:
                 data = self.items[0]
@@ -153,7 +146,13 @@ class PIFO(HW_sim_object):
         return str(self.items)
     
     def peek_front(self):
-        if len(self.items):
+        if not len(self.items) == 0:
             return self.items[0]
+        else:
+            return 0
+
+    def peek_tail(self):
+        if not len(self.items) == 0:
+            return self.items[len(self.items) - 1]
         else:
             return 0
