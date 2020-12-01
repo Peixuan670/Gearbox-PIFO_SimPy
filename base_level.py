@@ -69,9 +69,10 @@ class Base_level(HW_sim_object):
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
             print ('Check earliest fifo from index {}'.format(index))
+            yield self.wait_sys_clks(self.fifo_check_latency)
             cur_index = index            
             while True:
-                if self.fifos[cur_index].get_len(): # TODO can I do this here? Non-zero as true?
+                if not self.fifos[cur_index].get_len() == 0:
                     self.find_earliest_fifo_pipe_dat.put(cur_index)
                     print ('Found earliest fifo{}'.format(cur_index))
                     break
