@@ -18,6 +18,8 @@ class BLevel_tb(HW_sim_object):
         self.enq_pipe_sts = simpy.Store(env)
         self.deq_pipe_req = simpy.Store(env)
         self.deq_pipe_dat = simpy.Store(env)
+        self.find_earliest_fifo_pipe_req = simpy.Store(env)
+        self.find_earliest_fifo_pipe_dat = simpy.Store(env)
         self.fifo_num = fifo_num
 
         # number of tesing packets
@@ -48,6 +50,7 @@ class BLevel_tb(HW_sim_object):
 
         self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, \
                         self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
+                        self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
                         self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
                         fifo_write_latency=1, fifo_read_latency=1, \
         fifo_check_latency=1, fifo_num=10, initial_vc=0)
@@ -90,16 +93,19 @@ class BLevel_tb(HW_sim_object):
             #((done, popped_data, popped_data_valid)) = yield self.pifo_w_out_pipe.get() # tuple
             #if popped_data_valid:
             #    print ('@ {:04d} - popped pkt {} with rank = {}'.format(self.env.now, popped_data.get_uid(), popped_data.get_finish_time()))
-            
+
 
         # pop all items
         print ('Start dequing packets')
         for i in range(len(pkt_list)):
             # submit pop request (value in put is a don't care)
             #pkt_des = self.blevel.deque_earliest_pkt()
-            self.deq_pipe_req.put(1)
+            current_fifo_index = self.blevel.get_cur_fifo()
+            self.find_earliest_fifo_pipe_req.put(current_fifo_index)
+            deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
+            self.deq_pipe_req.put(deque_fifo)
             pkt_des = yield self.deq_pipe_dat.get()
-            print ('@ {} - dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+            print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))    
  
         yield self.env.timeout(1)
 

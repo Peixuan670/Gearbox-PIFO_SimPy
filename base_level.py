@@ -61,25 +61,28 @@ class Base_level(HW_sim_object):
     def run(self):
         self.env.process(self.enqueue_p())
         self.env.process(self.dequeue_p())
+        self.env.process(self.find_earliest_non_empty_fifo_p())
 
     # Public
     
-    def find_next_non_empty_fifo_p(self):
-        
+    def find_earliest_non_empty_fifo_p(self):        
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
-            cur_fifo_index = index + 1
+            print ('Check earliest fifo from index {}'.format(index))
+            cur_index = index            
             while True:
-                if (cur_fifo_index == self.fifo_num):
+                if self.fifos[cur_index].get_len(): # TODO can I do this here? Non-zero as true?
+                    self.find_earliest_fifo_pipe_dat.put(cur_index)
+                    print ('Found earliest fifo{}'.format(cur_index))
+                    break
+                cur_index = cur_index + 1
+                if (cur_index == self.fifo_num):
                     # recirculate if go to the back of the level
-                    cur_fifo_index = 0
-
-                if (cur_fifo_index == index):
+                    cur_index = 0
+                if (cur_index == index):
                     self.find_earliest_fifo_pipe_dat.put(-1) # this means all the fifos are empty
-                else:
-                    if self.fifos[cur_fifo_index].get_len(): # TODO can I do this here? Non-zero as true?
-                        self.find_earliest_fifo_pipe_dat.put(cur_fifo_index)
-                cur_fifo_index = cur_fifo_index + 1
+                    print ('All fifos are empty')
+                    break
 
 
     def enqueue_p(self):
@@ -107,7 +110,7 @@ class Base_level(HW_sim_object):
         return dequed_pkt
     """
     
-    def get_earliest_pkt_timestamp(self): # TODO: this is put into higher level
+    '''def get_earliest_pkt_timestamp(self): # TODO: this is put into higher level
         # return time stamp from the head of PIFO
         if self.fifos[self.cur_fifo].get_len():
             top_pkt = self.fifos[self.cur_fifo].peek_front()
@@ -118,7 +121,7 @@ class Base_level(HW_sim_object):
                 top_pkt = self.fifos[earliest_fifo].peek_front()
                 return top_pkt.get_finish_time()
             else:
-                return -1 # there is no pkt in this level
+                return -1 # there is no pkt in this level'''
 
     def dequeue_p(self):
         # request includes queue index to deque:
@@ -132,9 +135,9 @@ class Base_level(HW_sim_object):
             else: 
                 # deque FIFO[index]
                 if self.deq_pipe_dat is not None:
-                self.fifo_r_in_pipe_arr[fifo_index].put(1)
-                dequed_pkt = yield self.fifo_r_out_pipe_arr[fifo_index].get()
-                self.deq_pipe_dat.put(dequed_pkt)
+                    self.fifo_r_in_pipe_arr[index].put(1)
+                    dequed_pkt = yield self.fifo_r_out_pipe_arr[index].get()
+                    self.deq_pipe_dat.put(dequed_pkt)
 
 
     def update_vc(self, vc):
@@ -144,4 +147,10 @@ class Base_level(HW_sim_object):
         # update current serving fifo
         if self.fifos[self.cur_fifo].get_len() == 0:
             self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
-        return self.vcx
+        return self.vc
+    
+    def get_vc(self):
+        return self.vc
+    
+    def get_cur_fifo(self):
+        return self.cur_fifo
