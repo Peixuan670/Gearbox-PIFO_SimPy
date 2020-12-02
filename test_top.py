@@ -12,15 +12,18 @@ class Top_tb(HW_sim_object):
         super(Top_tb, self).__init__(env, line_clk_period, sys_clk_period)
         self.ptr_in_pipe = simpy.Store(env)
         self.ptr_out_pipe = simpy.Store(env)
+        self.vc_upd_pipe = simpy.Store(env)
         self.pkt_in_pipe = simpy.Store(env)
         self.pkt_out_pipe = simpy.Store(env)
 
         self.num_test_pkts = 10
 
-        self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, self.pkt_in_pipe, self.num_test_pkts)
+        self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, self.vc_upd_pipe, self.pkt_in_pipe, self.num_test_pkts)
         self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_in_pipe, self.pkt_out_pipe, self.ptr_in_pipe, self.ptr_out_pipe)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.ptr_in_pipe, self.ptr_out_pipe)
         self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_out_pipe)
+        
+        self.vc = 0
         
         self.run()
 
@@ -28,7 +31,9 @@ class Top_tb(HW_sim_object):
         self.env.process(self.top_tb())
 
     def top_tb(self):
-        yield self.env.timeout(1)
+        while True:
+            self.vc_upd_pipe.put(self.env.now)
+            yield self.env.timeout(1)
         
 def main():
     env = simpy.Environment(0.0)
