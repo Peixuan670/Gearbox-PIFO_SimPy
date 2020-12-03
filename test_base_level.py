@@ -76,7 +76,7 @@ class BLevel_tb(HW_sim_object):
             rank = random.sample(range(0, 10), 1)[0]
             pkt_id = i
             tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
-            cur_pkt = Packet_descriptior(pkt_id, tuser) # TODO: what should be the address looks like
+            cur_pkt = Packet_descriptior(pkt_id, pkt_id, tuser) # TODO: what should be the address looks like
             # Anthony: address comes from the pkt_storage (managed by it). It's a number.
             pkt_list.append(cur_pkt)
 

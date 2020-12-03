@@ -33,6 +33,9 @@ class Base_level(HW_sim_object):
 
         self.vc = initial_vc
         self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num
+
+        # Initialize pkt cnt
+        self.pkt_cnt = 0
         
         # Initialize FIFO array and read/write handle
         
@@ -97,6 +100,7 @@ class Base_level(HW_sim_object):
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
                 self.enq_pipe_sts.put(1)
+                self.pkt_cnt = self.pkt_cnt + 1
             else:
                 print("Illegal packet")
 
@@ -139,6 +143,7 @@ class Base_level(HW_sim_object):
                     self.fifo_r_in_pipe_arr[index].put(1)
                     dequed_pkt = yield self.fifo_r_out_pipe_arr[index].get()
                     self.deq_pipe_dat.put(dequed_pkt)
+                    self.pkt_cnt = self.pkt_cnt - 1
 
 
     def update_vc(self, vc):
@@ -155,3 +160,6 @@ class Base_level(HW_sim_object):
     
     def get_cur_fifo(self):
         return self.cur_fifo
+    
+    def get_pkt_cnt(self):
+        return self.pkt_cnt
