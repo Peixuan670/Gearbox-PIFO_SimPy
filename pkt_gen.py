@@ -1,21 +1,26 @@
 #!/usr/bin/env python
 
 import simpy
-from hwsim_utils import *
+from random import choice, randint
+from string import ascii_uppercase
 from scapy.all import *
+from hwsim_utils import *
 
 class Pkt_gen(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, vc_upd_pipe, pkt_in_pipe, num_pkts):
+    def __init__(self, env, line_clk_period, sys_clk_period, vc_upd_pipe, bp_upd_pipe, pkt_in_pipe, num_pkts):
         super(Pkt_gen, self).__init__(env, line_clk_period, sys_clk_period)
         self.vc_upd_pipe = vc_upd_pipe
+        self.bp_upd_pipe = bp_upd_pipe
         self.pkt_in_pipe = pkt_in_pipe
         self.num_pkts = num_pkts
         
         self.vc = 0
+        self.bp = 0
         self.run()
 
     def run(self):
         self.env.process(self.vc_upd())
+        self.env.process(self.bp_upd())
         self.env.process(self.pkt_gen())
 
     def vc_upd(self):
@@ -26,16 +31,25 @@ class Pkt_gen(HW_sim_object):
             vc_incr = yield self.vc_upd_pipe.get()
             self.vc += vc_incr
             #print ("VC Update: {}".format(self.vc))
+            
+    def bp_upd(self):
+        """ update backpressure flag
+        """
+        while True:
+            self.bp = yield self.bp_upd_pipe.get()
         
     def pkt_gen(self):
         """
-        Loop for number of test packets
+        Loop for number of test packets with backpressure off
             - Generate packet
             - Wait packet time including preamble and IFG
         """
-        for i in range(self.num_pkts):
+        i = 0
+        while (i < self.num_pkts and self.bp == 0):
+
+            pyld = ''.join(choice(ascii_uppercase) for i in range(randint(6, 1460)))
             # create the test packets
-            pkt = Ether()/IP()/TCP()/'hello there pretty world!!!'
+            pkt = Ether()/IP()/TCP()/Raw(load=pyld)
             rank = self.vc + random.sample(range(0, 100), 1)[0]
             pkt_id = i
             tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
@@ -46,4 +60,6 @@ class Pkt_gen(HW_sim_object):
             # wait for 10 cycles
             #for j in range(PREAMBLE + len(pkt) + IFG):
             yield self.wait_line_clks(self.PREAMBLE + len(pkt) + self.IFG)
+            
+            i += 1
 
