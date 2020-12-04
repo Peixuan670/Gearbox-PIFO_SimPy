@@ -4,7 +4,7 @@ import simpy
 from hwsim_utils import *
 from pkt_gen import *
 from packet_storage import *
-from pkt_sched_blevel import *
+from pkt_sched_level import *
 from pkt_mon import *
 
 class Top_tb(HW_sim_object):

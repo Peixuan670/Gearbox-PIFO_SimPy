@@ -81,6 +81,9 @@ class Pkt_sched(HW_sim_object):
                 self.deq_pipe_req.put(deque_fifo)
                 pkt_des = yield self.deq_pipe_dat.get()
                 print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                # update vc
+                pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug?
+                self.blevel.update_vc(pkt_ft)
                 #((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
                 head_seg_ptr = pkt_des.get_hdr_addr()
                 meta_ptr = pkt_des.get_meta_addr()

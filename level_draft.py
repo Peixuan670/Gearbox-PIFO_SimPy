@@ -36,6 +36,9 @@ class Level(HW_sim_object):
 
         self.fifos = []
 
+        # Initialize pkt cnt
+        self.pkt_cnt = 0
+
         # Initialize VC
 
         self.vc = initial_vc
@@ -72,8 +75,10 @@ class Level(HW_sim_object):
         self.pifo = PIFO(env, line_clk_period, sys_clk_period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, \
             self.pifo_w_out_pipe, maxsize=self.pifo_size, write_latency=self.pifo_write_latency, read_latency=self.pifo_read_latency, init_items=[])
 
+        self.recycle_cnt = 0 # debug
 
-        
+        self.run()
+
         
 
     # Private
@@ -98,7 +103,7 @@ class Level(HW_sim_object):
 
     # Methods
 
-    def reload(self, fifo_index, pkt_num):
+    '''def reload(self, fifo_index, pkt_num):
     	# reload the pifo
     	# traverse the first non-empty fifo next to the current serving fifo and put into the pifo
         traversed_pkt = 0
@@ -114,7 +119,12 @@ class Level(HW_sim_object):
                 self.enque(popped_pkt)
 
 
-    	# for pkts kicked out from pifo, put back the the fifo it belongs to (call enque(pkt))
+    	# for pkts kicked out from pifo, put back the the fifo it belongs to (call enque(pkt))'''
+    
+    def run(self):
+        self.env.process(self.enqueue_p())
+        self.env.process(self.dequeue_p())
+        self.env.process(self.find_earliest_non_empty_fifo_p())
 
 
     # Public
@@ -141,15 +151,21 @@ class Level(HW_sim_object):
 
     
     def enqueue_p(self):
-#    def enque(self, pkt):
         while True:
             pkt = yield self.enq_pipe_cmd.get() 
+            print('Start enquing')
             if not pkt == 0:
-                if pkt.get_finish_time() < self.get_pifo_max_pkt_timestamp():
+                if pkt.get_finish_time(0) < self.get_pifo_max_pkt_timestamp():
                     # If new pkt's finish time < max time stamp in pifo, enque pifo
                     self.pifo_w_in_pipe.put(pkt)
                     ((done, popped_pkt, popped_pkt_valid)) = yield self.pifo_w_out_pipe.get() # tuple
+                    self.pkt_cnt = self.pkt_cnt + 1 # pkt cnt ++
+                    print('Enqued PIFO, pkt_cnt = {}'.format(self.pkt_cnt))
                     if popped_pkt_valid:
+                        self.pkt_cnt = self.pkt_cnt - 1 # poped pkt
+                        self.recycle_cnt = self.recycle_cnt + 1 # debug
+                        print('Recycle pkt: {}'.format(self.recycle_cnt))
+                        
                         # recycle the popped pkt from pifo, send the packet out # TODO: can we directly send it back to enque pipe?
                         self.enq_pipe_sts.put((popped_pkt_valid, popped_pkt))
                         #break # TODO: break to where
@@ -157,11 +173,17 @@ class Level(HW_sim_object):
                         self.enq_pipe_sts.put((popped_pkt_valid, 0))
                 else:
                     # read the pkt's finish time and find correct fifo to enque
-                    fifo_index_offset = math.floor(pkt.getFinishTime() / self.granularity) - math.floor(self.vc / self.granularity)
+                    fifo_index_offset = math.floor(pkt.get_finish_time(0) / self.granularity) - math.floor(self.vc / self.granularity)
+                    #print('pkt ft = {}'.format(pkt.get_finish_time(0))) # debug
+                    #print('Gran = {}'.format(self.granularity))    # debug
+                    #print('pkt.get_finish_time(0) / self.granularity = {}'.format(pkt.get_finish_time(0) / self.granularity)) # debug
+                    #print('self.vc / self.granularity = {}'.format(self.vc / self.granularity)) # debug
                     # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
                     enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
                     self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                     yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
+                    self.pkt_cnt = self.pkt_cnt + 1 # pkt cnt ++
+                    print('Enqued FIFO vc + {}, pkt_cnt = {}'.format(fifo_index_offset, self.pkt_cnt))
                     self.enq_pipe_sts.put((0, 0))
                 # return ((popped_pkt_valid, popped_pkt)), if enque fifo, return (0, 0)
             else:
@@ -178,28 +200,38 @@ class Level(HW_sim_object):
                 # deque PIFO
                 self.pifo_r_in_pipe.put(1)
                 dequed_pkt = yield self.pifo_r_out_pipe.get()
-                if self.pifo.get_occupancy() < self.pifo_thresh: 
+                self.pkt_cnt = self.pkt_cnt - 1 # pkt cnt --
+                print('Dequed PIFO, pkt_cnt = {}'.format(self.pkt_cnt))
+                if self.pifo.get_size() < self.pifo_thresh: 
                     # if pifo.len < pifo_thresh, reload pifo
-                    reload_fifo = self.find_next_non_empty_fifo(self.cur_fifo) # get next non-empty fifo as reload fifo
-                    pkt_num = len(self.fifos[reload_fifo].items)
-                    self.deq_pipe_dat.put((dequed_pkt, 1, reload_fifo, pkt_num)) # return (pkt, is_reload, reload_fifo, pkt_num)
+                    #reload_fifo = self.find_next_non_empty_fifo(self.cur_fifo) # get next non-empty fifo as reload fifo
+                    #pkt_num = len(self.fifos[reload_fifo].items)
+                    #self.deq_pipe_dat.put((dequed_pkt, 1, reload_fifo, pkt_num)) # return (pkt, is_reload, reload_fifo, pkt_num)
+                    self.deq_pipe_dat.put((dequed_pkt, 1)) # return (pkt, is_reload)
                     print("Need to reload PIFO")
+                else:
+                    self.deq_pipe_dat.put((dequed_pkt, 0)) # return (pkt, is_reload)
             else: 
                 # deque FIFO[index]
                 if self.deq_pipe_dat is not None:
                     self.fifo_r_in_pipe_arr[index].put(1)
                     dequed_pkt = yield self.fifo_r_out_pipe_arr[index].get()
-                    self.deq_pipe_dat.put((dequed_pkt, 0, 0, 0))
+                    self.deq_pipe_dat.put((dequed_pkt, 0))
+                    self.pkt_cnt = self.pkt_cnt - 1 # pkt cnt --
+                    print('Dequed FIFO {}, pkt_cnt = {}'.format(index, self.pkt_cnt))
 
     def get_earliest_pkt_timestamp(self):
     	# return time stamp from the head of PIFO
         top_pkt = self.pifo.peek_front()
-        return top_pkt.get_finish_time()
+        return top_pkt.get_finish_time(0)
     
     def get_pifo_max_pkt_timestamp(self):
     	# return time stamp from the head of PIFO
-        tail_pkt = self.pifo.peek_tail()
-        return tail_pkt.getFinishTime()
+        if self.pifo.get_size() < self.pifo_size:
+            return math.inf # if pifo is not full, then max timestamp = infinity
+        else:
+            tail_pkt = self.pifo.peek_tail()
+            return tail_pkt.get_finish_time(0)
 
     def update_vc(self, vc):
         # Update vc
@@ -211,3 +243,9 @@ class Level(HW_sim_object):
         return self.vc
 
     # Tuser + headpointer as pkt
+
+    def get_cur_fifo(self):
+        return self.cur_fifo
+    
+    def get_pkt_cnt(self):
+        return self.pkt_cnt

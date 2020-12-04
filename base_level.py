@@ -95,6 +95,8 @@ class Base_level(HW_sim_object):
             pkt = yield self.enq_pipe_cmd.get() 
             if not pkt == 0:
                 fifo_index_offset = math.floor(pkt.get_finish_time(debug=False) / self.granularity) - math.floor(self.vc / self.granularity)
+                if fifo_index_offset < 0:
+                    fifo_index_offset = 0 # if pkt's finish time has passed, enque the current fifo
                 # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
                 enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
