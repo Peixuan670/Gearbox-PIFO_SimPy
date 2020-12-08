@@ -104,7 +104,7 @@ class BLevel_tb(HW_sim_object):
             self.find_earliest_fifo_pipe_req.put(current_fifo_index)
             deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
             self.deq_pipe_req.put(deque_fifo)
-            pkt_des = yield self.deq_pipe_dat.get()
+            (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
             print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))    
  
         yield self.env.timeout(1)
