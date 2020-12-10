@@ -101,7 +101,8 @@ class Base_level(HW_sim_object):
                 enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                self.enq_pipe_sts.put(1)
+                #self.enq_pipe_sts.put(1)
+                self.enq_pipe_sts.put((0, 0))
                 self.pkt_cnt = self.pkt_cnt + 1
             else:
                 print("Illegal packet")
@@ -144,7 +145,7 @@ class Base_level(HW_sim_object):
                 if self.deq_pipe_dat is not None:
                     self.fifo_r_in_pipe_arr[index].put(1)
                     dequed_pkt = yield self.fifo_r_out_pipe_arr[index].get()
-                    self.deq_pipe_dat.put(dequed_pkt)
+                    self.deq_pipe_dat.put((dequed_pkt, 0))
                     self.pkt_cnt = self.pkt_cnt - 1
 
 
