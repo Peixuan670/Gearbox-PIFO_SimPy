@@ -9,6 +9,7 @@ class Level(HW_sim_object):
     def __init__(self, env, line_clk_period, sys_clk_period, granularity, fifo_size, pifo_thresh, pifo_size, \
         enq_pipe_cmd, enq_pipe_sts, deq_pipe_req, deq_pipe_dat, \
         find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
+        #reload_req, reload_sts, \
         fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr,\
         pifo_r_in_pipe, pifo_r_out_pipe, pifo_w_in_pipe, pifo_w_out_pipe,\
         fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, \
@@ -35,6 +36,11 @@ class Level(HW_sim_object):
         self.pifo_write_latency = pifo_write_latency
 
         self.fifos = []
+
+        self.reload_req = simpy.Store(env)
+        self.reload_sts = simpy.Store(env)
+        #self.reload_req = reload_req
+        #self.reload_sts = reload_sts
 
         # Initialize pkt cnt
         self.pkt_cnt = 0
@@ -124,6 +130,7 @@ class Level(HW_sim_object):
     def run(self):
         self.env.process(self.enqueue_p())
         self.env.process(self.dequeue_p())
+        self.env.process(self.reload_p())
         self.env.process(self.find_earliest_non_empty_fifo_p())
 
 
@@ -208,6 +215,7 @@ class Level(HW_sim_object):
                     #pkt_num = len(self.fifos[reload_fifo].items)
                     #self.deq_pipe_dat.put((dequed_pkt, 1, reload_fifo, pkt_num)) # return (pkt, is_reload, reload_fifo, pkt_num)
                     self.deq_pipe_dat.put((dequed_pkt, 1)) # return (pkt, is_reload)
+                    self.reload_req.put(1) # initial reload
                     print("Need to reload PIFO")
                 else:
                     self.deq_pipe_dat.put((dequed_pkt, 0)) # return (pkt, is_reload)
@@ -220,10 +228,41 @@ class Level(HW_sim_object):
                     self.pkt_cnt = self.pkt_cnt - 1 # pkt cnt --
                     print('Dequed FIFO {}, pkt_cnt = {}'.format(index, self.pkt_cnt))
 
+    def reload_p(self):
+        while True:
+            yield self.reload_req.get()
+            print("@@@@@@ reload function here")
+            self.find_earliest_fifo_pipe_req.put(self.cur_fifo)
+            fifo_index = yield self.find_earliest_fifo_pipe_dat.get()
+            print('Reload from fifo {}'.format(fifo_index))
+            pkt_num = self.fifos[fifo_index].get_len()
+            for i in range(pkt_num):
+                if not self.fifos[fifo_index].get_len() == 0:
+                    self.fifo_r_in_pipe_arr[fifo_index].put(1)
+                    reload_pkt = yield self.fifo_r_out_pipe_arr[fifo_index].get()
+                    print('Get pkt: {}, remain reload #{}, current fifo len: {}'.format(reload_pkt, pkt_num - i, self.fifos[fifo_index].get_len()))
+
+                    if not reload_pkt == 0: #sanity check
+
+                        self.pifo_w_in_pipe.put(reload_pkt)
+                        ((done, popped_pkt, popped_pkt_valid)) = yield self.pifo_w_out_pipe.get() # tuple
+                        if popped_pkt_valid:
+                            print("***** popped packet")
+                            # recycle the popped pkt from pifo, send the packet out # TODO: can we directly send it back to enque pipe?
+                            # self.enq_pipe_cmd.put(popped_pkt)
+                            self.reload_sts.put((popped_pkt_valid, popped_pkt))
+                        else:
+                            self.reload_sts.put((popped_pkt_valid, 0))
+
+
+    
     def get_earliest_pkt_timestamp(self):
     	# return time stamp from the head of PIFO
         top_pkt = self.pifo.peek_front()
-        return top_pkt.get_finish_time(0)
+        if top_pkt:
+            return top_pkt.get_finish_time(0)
+        else:
+            return -1 # empty pifo in this level
     
     def get_pifo_max_pkt_timestamp(self):
     	# return time stamp from the head of PIFO

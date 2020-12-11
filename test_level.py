@@ -20,6 +20,10 @@ class Level_tb(HW_sim_object):
         self.deq_pipe_dat = simpy.Store(env)
         self.find_earliest_fifo_pipe_req = simpy.Store(env)
         self.find_earliest_fifo_pipe_dat = simpy.Store(env)
+
+        #self.reload_req = simpy.Store(env)
+        #self.reload_sts = simpy.Store(env)
+
         self.fifo_num = fifo_num
 
         # number of tesing packets
@@ -62,6 +66,7 @@ class Level_tb(HW_sim_object):
                         pifo_thresh, pifo_size, \
                         self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
                         self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
+                        #self.reload_req, self.reload_sts, \
                         self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
                         self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe,\
                         fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10,\
@@ -126,12 +131,14 @@ class Level_tb(HW_sim_object):
                 if if_reload:
                     print('Need reload here')
             else:
+                print ('*****Current pifo size: {}'.format(self.level.pifo.get_size()))
                 current_fifo_index = self.level.get_cur_fifo()
                 self.find_earliest_fifo_pipe_req.put(current_fifo_index)
                 deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
                 self.deq_pipe_req.put(deque_fifo)
                 (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
-                print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))    
+                print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                #print ('Current pifo size: {}'.format(self.level.pifo.get_size()))    
  
         yield self.env.timeout(1)
 
