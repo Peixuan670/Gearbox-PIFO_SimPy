@@ -89,6 +89,7 @@ class Level_tb(HW_sim_object):
         pkt_list = []
 
         for i in range(self.num_test_pkts):
+        #for i in range(20):
             pkt = Ether()/IP()/TCP()/'hello there pretty world!!!'
             rank = random.sample(range(0, 10), 1)[0]
             pkt_id = i
@@ -118,11 +119,17 @@ class Level_tb(HW_sim_object):
             self.enq_pipe_cmd.put(pkt_des)
             yield self.enq_pipe_sts.get()'''
 
-        
+        yield self.wait_sys_clks(50) # debug for sync problems # after applying this, there is no pkt cnt problem
 
         # pop all items
+        print ('After Enque: recirculated pkts: {}'.format(self.level.recycle_cnt))
         print ('Start dequing packets')
+        print ('Current total pkts in the scheduler: {}'.format(self.level.pkt_cnt))
         for i in range(len(pkt_list)):
+            print ('&&&&& Current total pkts in the scheduler: {}'.format(self.level.pkt_cnt))
+            # model write latency
+            yield self.wait_sys_clks(10)
+
             print('######## Deque # {}'.format(i))
             if self.level.pifo.get_size():
                 self.deq_pipe_req.put(-1)
@@ -149,7 +156,7 @@ def main():
     # instantiate the testbench
     level_tb = Level_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=1000)
+    env.run(until=2000)
 
 
 if __name__ == "__main__":

@@ -82,6 +82,7 @@ class Level(HW_sim_object):
             self.pifo_w_out_pipe, maxsize=self.pifo_size, write_latency=self.pifo_write_latency, read_latency=self.pifo_read_latency, init_items=[])
 
         self.recycle_cnt = 0 # debug
+        self.reload_recycle_cnt = 0 # debug
 
         self.run()
 
@@ -210,13 +211,9 @@ class Level(HW_sim_object):
                 self.pkt_cnt = self.pkt_cnt - 1 # pkt cnt --
                 print('Dequed PIFO, pkt_cnt = {}'.format(self.pkt_cnt))
                 if self.pifo.get_size() < self.pifo_thresh: 
-                    # if pifo.len < pifo_thresh, reload pifo
-                    #reload_fifo = self.find_next_non_empty_fifo(self.cur_fifo) # get next non-empty fifo as reload fifo
-                    #pkt_num = len(self.fifos[reload_fifo].items)
-                    #self.deq_pipe_dat.put((dequed_pkt, 1, reload_fifo, pkt_num)) # return (pkt, is_reload, reload_fifo, pkt_num)
                     self.deq_pipe_dat.put((dequed_pkt, 1)) # return (pkt, is_reload)
                     self.reload_req.put(1) # initial reload
-                    print("Need to reload PIFO")
+                    ##print("Need to reload PIFO")
                 else:
                     self.deq_pipe_dat.put((dequed_pkt, 0)) # return (pkt, is_reload)
             else: 
@@ -232,6 +229,7 @@ class Level(HW_sim_object):
         while True:
             yield self.reload_req.get()
             print("@@@@@@ reload function here")
+            print("@@@When reload, current pifo size: {}".format(self.pifo.get_size()))
             self.find_earliest_fifo_pipe_req.put(self.cur_fifo)
             fifo_index = yield self.find_earliest_fifo_pipe_dat.get()
             print('Reload from fifo {}'.format(fifo_index))
@@ -244,12 +242,17 @@ class Level(HW_sim_object):
 
                     if not reload_pkt == 0: #sanity check
 
+                        print("***Start reload this pkt, current pifo size: {}".format(self.pifo.get_size()))
                         self.pifo_w_in_pipe.put(reload_pkt)
+                        print("***Reloaded pifo with pkt: {}".format(reload_pkt))
                         ((done, popped_pkt, popped_pkt_valid)) = yield self.pifo_w_out_pipe.get() # tuple
+                        print("***Finish reload this pkt, current pifo size: {}".format(self.pifo.get_size()))
                         if popped_pkt_valid:
-                            print("***** popped packet")
+                            self.pkt_cnt = self.pkt_cnt - 1 # pkt cnt --
+                            self.reload_recycle_cnt = self.reload_recycle_cnt + 1
+                            print("***** popped packet, total poped {} pkts during reload".format(self.reload_recycle_cnt))
                             # recycle the popped pkt from pifo, send the packet out # TODO: can we directly send it back to enque pipe?
-                            # self.enq_pipe_cmd.put(popped_pkt)
+                            self.enq_pipe_cmd.put(popped_pkt)
                             self.reload_sts.put((popped_pkt_valid, popped_pkt))
                         else:
                             self.reload_sts.put((popped_pkt_valid, 0))
