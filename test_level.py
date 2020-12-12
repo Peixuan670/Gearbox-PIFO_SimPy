@@ -101,7 +101,11 @@ class Level_tb(HW_sim_object):
         # push all data
         print ('Start enquing packets')
         print ('pkt list lenth = {}'.format(len(pkt_list)))
+        enq_cnt = 0
         for pkt_des in pkt_list:
+            yield self.wait_sys_clks(10)
+            enq_cnt = enq_cnt + 1
+            print('######## Enque # {}'.format(enq_cnt))
             print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
             self.enq_pipe_cmd.put(pkt_des)
             print ('put: {}'.format(pkt_des))
@@ -109,6 +113,7 @@ class Level_tb(HW_sim_object):
             print ('get: {}, {}'.format(popped_pkt_valid, popped_pkt)) # cannot reach here
             if popped_pkt_valid:
                 self.enq_pipe_cmd.put(popped_pkt) # this poped packet should not pop another pkt in pifo (it should go into fifo)
+            print ('&&&&&&&& Scheduler pkt cnt = {}'.format(self.level.get_level_size()))
 
         '''print ('Start enquing packets')
         for pkt_des in pkt_list:
@@ -124,28 +129,36 @@ class Level_tb(HW_sim_object):
         # pop all items
         print ('After Enque: recirculated pkts: {}'.format(self.level.recycle_cnt))
         print ('Start dequing packets')
+        print ('Pkt list length: {}'.format(len(pkt_list)))
         print ('Current total pkts in the scheduler: {}'.format(self.level.pkt_cnt))
         for i in range(len(pkt_list)):
-            print ('&&&&& Current total pkts in the scheduler: {}'.format(self.level.pkt_cnt))
+            #print ('&&&&& Current total pkts in the scheduler: {}'.format(self.level.pkt_cnt))
             # model write latency
             yield self.wait_sys_clks(10)
 
             print('######## Deque # {}'.format(i))
-            if self.level.pifo.get_size():
-                self.deq_pipe_req.put(-1)
-                (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
-                print ('@ {} - From pifo , dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                if if_reload:
-                    print('Need reload here')
+
+            if self.level.get_level_size() == 0:
+                print("^^^^^Empty level here (Error)")
             else:
-                print ('*****Current pifo size: {}'.format(self.level.pifo.get_size()))
-                current_fifo_index = self.level.get_cur_fifo()
-                self.find_earliest_fifo_pipe_req.put(current_fifo_index)
-                deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
-                self.deq_pipe_req.put(deque_fifo)
-                (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
-                print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                #print ('Current pifo size: {}'.format(self.level.pifo.get_size()))    
+
+                if self.level.pifo.get_size():
+                    self.deq_pipe_req.put(-1)
+                    (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
+                    print ('@ {} - From pifo , dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                    if if_reload:
+                        print('Need reload here')
+                else:
+                    print ('*****Current pifo size: {}'.format(self.level.pifo.get_size()))
+                    current_fifo_index = self.level.get_cur_fifo()
+                    self.find_earliest_fifo_pipe_req.put(current_fifo_index)
+                    deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
+                    self.deq_pipe_req.put(deque_fifo)
+                    (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
+                    print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                    #print ('Current pifo size: {}'.format(self.level.pifo.get_size()))
+            
+            print ('&&&&&&&& Scheduler pkt cnt = {}'.format(self.level.get_level_size()))    
  
         yield self.env.timeout(1)
 
@@ -156,7 +169,7 @@ def main():
     # instantiate the testbench
     level_tb = Level_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=2000)
+    env.run(until=5000)
 
 
 if __name__ == "__main__":

@@ -42,6 +42,9 @@ class GearboxII(HW_sim_object):
         self.find_earliest_fifo_pipe_req_arr = [] 
         self.find_earliest_fifo_pipe_dat_arr = []
 
+        self.reload_signal_arr = [] # reload_signal
+        self.reload_signal_arr.append(0)
+
         # initiate level 0
 
         fifo_r_in_pipe_arr = []
@@ -131,82 +134,95 @@ class GearboxII(HW_sim_object):
             fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, pifo_write_latency=1, pifo_read_latency=1, initial_vc=0)
 
             self.levels.append(cur_level)
+
+            reload_signal_arr.append(simpy.Store(env)) # reload signal of this level
             
             index = index + 1
         
         # initiate vc
         self.virtrul_clock = initial_vc
-        return
+
+        self.run()
     
-    def enque(self, pkt):
-        pkt_finish_time = pkt.get_finish_time()
+    def run(self):
+        self.env.process(self.enqueue_p())
+        self.env.process(self.dequeue_p())
+        #self.env.process(self.find_earliest_non_empty_fifo_p())
+    
+    def enque_p(self):
+        while True:
+            pkt = yield self.enq_pipe_cmd.get() 
+            pkt_finish_time = pkt.get_finish_time()
 
-        # find the correct level to enque
-        index = 0
-        while (index < self.level_num):
-            level_max_vc = math.floor(self.vc/self.granularity_list[index]) + self.granularity_list[index] * self.fifo_num_list[index]
-            if pkt_finish_time < level_max_vc:
-                self.enq_pipe_cmd_arr[index].put(pkt_des)
-                (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr[index].get()               
-                if popped_pkt_valid:
-                    self.enq_pipe_cmd_arr[index].put(popped_pkt) # this poped packet should not pop another pkt in pifo (it should go into fifo)               
-                return
-            index = index + 1
-        return
+            # find the correct level to enque
+            index = 0
+            while (index < self.level_num):
+                level_max_vc = math.floor(self.vc/self.granularity_list[index]) + self.granularity_list[index] * self.fifo_num_list[index]
+                if pkt_finish_time < level_max_vc:
+                    self.enq_pipe_cmd_arr[index].put(pkt_des)
+                    (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr[index].get()               
+                    if popped_pkt_valid:
+                        self.enq_pipe_cmd_arr[index].put(popped_pkt) # this poped packet should not pop another pkt in pifo (it should go into fifo)               
+                    #return
+                index = index + 1
+            #return
 
 
-    def deque(self):
-        # find mininal time stamp among all levels
-        #min_time_stamp = self.levels[0].get_earliest_pkt_timestamp()
-        min_time_stamp = self.find_earliest_pkt_timestamp(0)
-        deque_level = 0
-        index = 1
-        while (index < self.level_num):
-            #cur_level_min_ts = self.levels[index].get_earliest_pkt_timestamp()
-            cur_level_min_ts = self.find_earliest_pkt_timestamp(index)
-            if cur_level_min_ts < min_time_stamp:
-                min_time_stamp = cur_level_min_ts
-                deque_level = index 
-            index = index + 1
+    def deque_p(self):
+        while True:
+            yield self.gb_deq_pipe_req.get()
+            # find mininal time stamp among all levels
+            #min_time_stamp = self.levels[0].get_earliest_pkt_timestamp()
+            min_time_stamp = self.find_earliest_pkt_timestamp(0)
+            deque_level = 0
+            index = 1
+            while (index < self.level_num):
+                #cur_level_min_ts = self.levels[index].get_earliest_pkt_timestamp()
+                cur_level_min_ts = self.find_earliest_pkt_timestamp(index)
+                if cur_level_min_ts < min_time_stamp:
+                    min_time_stamp = cur_level_min_ts
+                    deque_level = index 
+                index = index + 1
         
-        # deque such packet
-        if deque_level == 0:
-
-            #
-
-            #return self.levels[0].deque_earliest_pkt()
-        else:
-            if self.levels[deque_level].get_pkt_cnt() > 0:
-                if self.levels[deque_level].pifo.get_size():
-                    self.deq_pipe_req_arr[deque_level].put(-1)
-                    (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
-                    #print ('@ {} - From pifo , dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                    if if_reload:
-                        #print('Need reload here')
-                        reload_fifo = self.get_earliest_non_empty_fifo(deque_level)
-                        pkt_num = self.levels[deque_level].fifos[reload_fifo].get_len()
-                        #self.reload_cmd.put((reload_fifo, pkt_num)) # TODO: we need reload here
-                        # We don't need to yield here
-                else:
-                    deque_fifo = self.get_earliest_non_empty_fifo(deque_level)
-                    self.deq_pipe_req_arr[deque_level].put(deque_fifo)
-                    (pkt_des, if_reload) = yield self.deq_pipe_dat_arr[deque_level].get()
-                    #print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                    return pkt_des
-
-
-
-            # pkt = deque[level].putpifo
-            # if reload:
-                # call reload
+            # deque such packet
+            if deque_level == 0:
+                deque_fifo = self.get_earliest_non_empty_fifo(0)
+                self.deq_pipe_req_arr[deque_level].put(deque_fifo)
+                (pkt_des, if_reload) = yield self.deq_pipe_dat_arr[deque_level].get()
+                self.gb_deq_pipe_dat.put(pkt_des)
+            else:
+                if self.levels[deque_level].get_pkt_cnt() > 0:
+                    if self.levels[deque_level].pifo.get_size():
+                        self.deq_pipe_req_arr[deque_level].put(-1)
+                        (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
+                        #print ('@ {} - From pifo , dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                        if if_reload:
+                            #print('Need reload here')
+                            reload_fifo = self.get_earliest_non_empty_fifo(deque_level)
+                            pkt_num = self.levels[deque_level].fifos[reload_fifo].get_len()
+                            #self.reload_cmd.put((reload_fifo, pkt_num)) # TODO: we need reload here
+                            # We don't need to yield here
+                    else:
+                        deque_fifo = self.get_earliest_non_empty_fifo(deque_level)
+                        self.deq_pipe_req_arr[deque_level].put(deque_fifo)
+                        (pkt_des, if_reload) = yield self.deq_pipe_dat_arr[deque_level].get()
+                        #print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                        self.gb_deq_pipe_dat.put(pkt_des) # return (pkt, is_reload)
 
 
-            #return self.levels[index].deque_pifo()
+    def sched_reload(self):
+        while True:
+            (reload_level, reload_fifo, pkt_num) = yield self.reload_cmd.get()
+            print ('start to reload pifo from fifo {} with {} pkts'.format(reload_fifo, pkt_num))
+            for i in range(pkt_num):
+                self.deq_pipe_req.put(reload_fifo)
+                (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
+                self.enq_pipe_cmd.put(pkt_des)
+                yield self.enq_pipe_sts.get()
+            self.reload_sts.put("done reloading")
 
 
-
-
-    def migrate(self, level_index):
+    def migrate(self, level_index): # wait for vc update
         cur_level = self.levels[level_index]
         while(cur_level.fifos[cur_fifo].get_len()):
             pkt = cur_level.deque_fifo(cur_fifo)
