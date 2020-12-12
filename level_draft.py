@@ -131,7 +131,7 @@ class Level(HW_sim_object):
     def run(self):
         self.env.process(self.enqueue_p())
         self.env.process(self.dequeue_p())
-        self.env.process(self.reload_p())
+        #self.env.process(self.reload_p())
         self.env.process(self.find_earliest_non_empty_fifo_p())
 
 
@@ -291,3 +291,11 @@ class Level(HW_sim_object):
     
     def get_pkt_cnt(self):
         return self.pkt_cnt
+    
+    def get_level_size(self):
+        pkt_cnt = 0
+        for fifo in self.fifos:
+            pkt_cnt = pkt_cnt + fifo.get_len()
+        
+        pkt_cnt = pkt_cnt + self.pifo.get_size()
+        return pkt_cnt
