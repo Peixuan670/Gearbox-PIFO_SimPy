@@ -6,8 +6,8 @@ import array
 from hwsim_utils import HW_sim_object, BRAM, Tuser, Fifo
 
 SEG_SIZE = 64 # bytes of packet data
-MAX_SEGMENTS = 64
-MAX_PKTS = 64
+MAX_SEGMENTS = 4096
+MAX_PKTS = 4096
 
 class Pkt_segment(object):
     def __init__(self, tdata, next_seg=None):
