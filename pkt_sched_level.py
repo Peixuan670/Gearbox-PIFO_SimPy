@@ -22,8 +22,12 @@ class Pkt_sched(HW_sim_object):
         self.fifo_num = 10
 
         # reload
-        self.reload_cmd = simpy.Store(env)
-        self.reload_sts= simpy.Store(env)
+        #self.reload_cmd = simpy.Store(env)
+        #self.reload_sts= simpy.Store(env)
+
+        # migrate
+        self.migrate_data_pipe = simpy.Store(env)
+        self.migrate_feedback_pipe = simpy.Store(env)
 
         # number of tesing packets
         self.num_test_pkts = 30
@@ -65,6 +69,7 @@ class Pkt_sched(HW_sim_object):
                         pifo_thresh, pifo_size, \
                         self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
                         self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
+                        self.migrate_data_pipe, self.migrate_feedback_pipe, \
                         self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
                         self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe,\
                         fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10,\
@@ -77,6 +82,7 @@ class Pkt_sched(HW_sim_object):
     def run(self):
         self.env.process(self.sched_enq())
         self.env.process(self.sched_deq())
+        self.env.process(self.sched_reload())
 
     def sched_enq(self):
         while True:
@@ -115,7 +121,7 @@ class Pkt_sched(HW_sim_object):
                         self.find_earliest_fifo_pipe_req.put(current_fifo_index)
                         reload_fifo = yield self.find_earliest_fifo_pipe_dat.get()
                         pkt_num = self.level.fifos[reload_fifo].get_len()
-                        self.reload_cmd.put((reload_fifo, pkt_num))
+                        #self.reload_cmd.put((reload_fifo, pkt_num))
                         # We don't need to yield here
                 else:
                     current_fifo_index = self.level.get_cur_fifo()

@@ -20,6 +20,9 @@ class GearboxII(HW_sim_object):
         self.gb_deq_pipe_req = gb_deq_pipe_req
         self.gb_deq_pipe_dat = gb_deq_pipe_dat
 
+        self.migrate_data_pipe = simpy.Store(env)
+        self.migrate_feedback_pipe = simpy.Store(env)
+
 
         # Initiate all the levels
         self.levels = []
@@ -127,6 +130,7 @@ class GearboxII(HW_sim_object):
             self.pifo_thresh_list[index], self.pifo_size_list[index], \
             self.enq_pipe_cmd_arr[index], self.enq_pipe_sts_arr[index], self.deq_pipe_req_arr[index], self.deq_pipe_dat_arr[index], \
             self.find_earliest_fifo_pipe_req_arr[index], self.find_earliest_fifo_pipe_dat_arr[index], \
+            self.migrate_data_pipe, self.migrate_feedback_pipe, \
             self.fifo_r_in_pipe_matrix[index], self.fifo_r_out_pipe_matrix[index], \
             self.fifo_w_in_pipe_matrix[index], self.fifo_w_out_pipe_matrix[index], \
             self.pifo_r_in_pipe_arr[index], self.pifo_r_out_pipe_arr[index], \
@@ -151,7 +155,7 @@ class GearboxII(HW_sim_object):
     
     def enque_p(self):
         while True:
-            pkt = yield self.enq_pipe_cmd.get() 
+            pkt = yield self.gb_enq_pipe_cmd.get() 
             pkt_finish_time = pkt.get_finish_time()
 
             # find the correct level to enque
@@ -164,7 +168,10 @@ class GearboxII(HW_sim_object):
                     if popped_pkt_valid:
                         self.enq_pipe_cmd_arr[index].put(popped_pkt) # this poped packet should not pop another pkt in pifo (it should go into fifo)               
                     #return
+                    self.gb_enq_pipe_sts.put(1) # enque successfully
+                    break
                 index = index + 1
+            self.gb_enq_pipe_sts.put(0) # pkt overflow
             #return
 
 
@@ -190,11 +197,14 @@ class GearboxII(HW_sim_object):
                 self.deq_pipe_req_arr[deque_level].put(deque_fifo)
                 (pkt_des, if_reload) = yield self.deq_pipe_dat_arr[deque_level].get()
                 self.gb_deq_pipe_dat.put(pkt_des)
+                self.update_vc(pkt_des.get_finish_time()) # update vc
             else:
                 if self.levels[deque_level].get_pkt_cnt() > 0:
                     if self.levels[deque_level].pifo.get_size():
                         self.deq_pipe_req_arr[deque_level].put(-1)
                         (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
+                        self.gb_deq_pipe_dat.put(pkt_des) # return (pkt, is_reload)
+                        self.update_vc(pkt_des.get_finish_time()) # update vc
                         #print ('@ {} - From pifo , dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
                         if if_reload:
                             #print('Need reload here')
@@ -208,9 +218,10 @@ class GearboxII(HW_sim_object):
                         (pkt_des, if_reload) = yield self.deq_pipe_dat_arr[deque_level].get()
                         #print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
                         self.gb_deq_pipe_dat.put(pkt_des) # return (pkt, is_reload)
+                        self.update_vc(pkt_des.get_finish_time()) # update vc
 
 
-    def sched_reload(self):
+    '''def sched_reload(self):
         while True:
             (reload_level, reload_fifo, pkt_num) = yield self.reload_cmd.get()
             print ('start to reload pifo from fifo {} with {} pkts'.format(reload_fifo, pkt_num))
@@ -219,15 +230,22 @@ class GearboxII(HW_sim_object):
                 (pkt_des, if_reload) = yield self.deq_pipe_dat.get()
                 self.enq_pipe_cmd.put(pkt_des)
                 yield self.enq_pipe_sts.get()
-            self.reload_sts.put("done reloading")
+            self.reload_sts.put("done reloading")'''
 
 
-    def migrate(self, level_index): # wait for vc update
+    '''def migrate(self, level_index): # wait for vc update
         cur_level = self.levels[level_index]
         while(cur_level.fifos[cur_fifo].get_len()):
             pkt = cur_level.deque_fifo(cur_fifo)
             self.enque(pkt)
-    # need a in pipe for the signal
+    # need a in pipe for the signal'''
+
+    def migrate_p(self):
+        while True:
+            migrate_pkt = yield self.migrate_data_pipe.get()
+            if not migrate_pkt == 0:
+                self.self.gb_enq_pipe_cmd.put(migrate_pkt)
+                yield self.gb_enq_pipe_sts.get()
     
     # Private
 

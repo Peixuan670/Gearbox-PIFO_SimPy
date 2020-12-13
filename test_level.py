@@ -22,6 +22,9 @@ class Level_tb(HW_sim_object):
         self.find_earliest_fifo_pipe_dat = simpy.Store(env)
         self.fifo_num = fifo_num
 
+        self.migrate_data_pipe = simpy.Store(env)
+        self.migrate_feedback_pipe = simpy.Store(env)
+
         # number of tesing packets
         self.num_test_pkts = 30
 
@@ -62,6 +65,7 @@ class Level_tb(HW_sim_object):
                         pifo_thresh, pifo_size, \
                         self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
                         self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
+                        self.migrate_data_pipe, self.migrate_feedback_pipe, \
                         self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
                         self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe,\
                         fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10,\
@@ -117,6 +121,7 @@ class Level_tb(HW_sim_object):
         # pop all items
         print ('Start dequing packets')
         for i in range(len(pkt_list)):
+            #yield self.wait_sys_clks(10) # slow down deque speed Why this will cause pkt missing?
             print('######## Deque # {}'.format(i))
             if self.level.pifo.get_size():
                 self.deq_pipe_req.put(-1)
@@ -141,7 +146,7 @@ def main():
     # instantiate the testbench
     level_tb = Level_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=1000)
+    env.run(until=2000)
 
 
 if __name__ == "__main__":

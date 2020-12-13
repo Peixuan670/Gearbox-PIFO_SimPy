@@ -10,6 +10,8 @@ class Level(HW_sim_object):
         enq_pipe_cmd, enq_pipe_sts, deq_pipe_req, deq_pipe_dat, \
         find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
         #reload_req, reload_sts, \
+        #migrate_signal, \
+        migrate_data_pipe, migrate_feedback_pipe, \
         fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr,\
         pifo_r_in_pipe, pifo_r_out_pipe, pifo_w_in_pipe, pifo_w_out_pipe,\
         fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, \
@@ -27,6 +29,10 @@ class Level(HW_sim_object):
         self.deq_pipe_dat = deq_pipe_dat
         self.find_earliest_fifo_pipe_req = find_earliest_fifo_pipe_req
         self.find_earliest_fifo_pipe_dat = find_earliest_fifo_pipe_dat
+
+        self.migrate_signal = simpy.Store(env)
+        self.migrate_data_pipe = migrate_data_pipe
+        self.migrate_feedback_pipe = migrate_feedback_pipe
 
         self.fifo_read_latency = fifo_read_latency
         self.fifo_write_latency = fifo_write_latency
@@ -131,7 +137,7 @@ class Level(HW_sim_object):
     def run(self):
         self.env.process(self.enqueue_p())
         self.env.process(self.dequeue_p())
-        #self.env.process(self.reload_p())
+        self.env.process(self.reload_p())
         self.env.process(self.find_earliest_non_empty_fifo_p())
 
 
@@ -258,6 +264,18 @@ class Level(HW_sim_object):
                             self.reload_sts.put((popped_pkt_valid, 0))
 
 
+    def migrate_p(self):
+        while True:
+            (fifo_index, pkt_num) = yield self.migrate_signal.get()
+            for i in range(pkt_num):
+                self.deq_pipe_req.put(fifo_index)
+                (migrate_pkt, is_reload) = yield self.deq_pipe_dat.get()
+                if not migrate_pkt == 0:
+                    self.migrate_data_pipe.put(migrate_pkt)
+                    yield self.migrate_feedback_pipe.get()
+                    print("Migrated pkt {}".format(migrate_pkt))
+
+    
     
     def get_earliest_pkt_timestamp(self):
     	# return time stamp from the head of PIFO
@@ -277,11 +295,19 @@ class Level(HW_sim_object):
 
     def update_vc(self, vc):
         # Update vc
+        prev_fifo = self.cur_fifo
+
         if self.vc < vc:
             self.vc = vc
         # update current serving fifo
         if self.fifos[self.cur_fifo].get_len() is 0:
-            self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
+            self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num
+        if not prev_fifo == self.cur_fifo:
+            # we need to migrate here
+            pkt_num = self.fifos[self.cur_fifo].get_len()
+            if not pkt_num == 0:
+                self.migrate_signal.put(self.cur_fifo, pkt_num)
+                print("Starting migrate fifo: {} with {} pkts".format(self.cur_fifo, pkt_num))       
         return self.vc
 
     # Tuser + headpointer as pkt
