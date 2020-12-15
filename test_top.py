@@ -15,17 +15,18 @@ class Top_tb(HW_sim_object):
         self.vc_upd_pipe = simpy.Store(env)
         self.pkt_in_pipe = simpy.Store(env)
         self.pkt_out_pipe = simpy.Store(env)
+        self.pkt_mon_rdy = simpy.Store(env)
 
-        self.num_test_pkts = 1000
-        self.burst_size = 100
+        self.num_test_pkts = 100
+        self.burst_size = 10
 
         self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, self.vc_upd_pipe, \
                                self.pkt_in_pipe, self.num_test_pkts, self.burst_size)
         self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_in_pipe, \
                                      self.pkt_out_pipe, self.ptr_in_pipe, self.ptr_out_pipe)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.ptr_in_pipe, \
-                                  self.ptr_out_pipe)
-        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_out_pipe)
+                                  self.ptr_out_pipe, self.pkt_mon_rdy)
+        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_out_pipe, self.pkt_mon_rdy)
         
         self.vc = 0
         

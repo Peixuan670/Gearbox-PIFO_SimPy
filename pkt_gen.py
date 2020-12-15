@@ -49,7 +49,7 @@ class Pkt_gen(HW_sim_object):
                 pkt_id = i
                 tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
                 burst_len += len(pkt)
-                #print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
+                print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
                 pkt_lst.append((pkt, tuser))
 
                 # write the pkt and metadata into storage
