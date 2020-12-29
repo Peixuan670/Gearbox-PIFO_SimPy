@@ -221,7 +221,7 @@ class Gearbox_I(HW_sim_object):
                         (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_B[index].get()
                         
                     # we need to get the byte of this pkt
-                    self.deque_served_bytes[index] = self.deque_served_bytes[index] + dequed_pkt.get_len() # TODO get pkt len
+                    self.deque_served_bytes[index] = self.deque_served_bytes[index] + dequed_pkt.get_bytes() # TODO get pkt len
                     break # TODO break to where
 
             

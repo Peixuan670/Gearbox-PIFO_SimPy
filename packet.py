@@ -26,3 +26,6 @@ class Packet_descriptior:
     
     def get_tuser(self):
         return self.tuser
+
+    def get_bytes(self):
+        return self.tuser.pkt_len
