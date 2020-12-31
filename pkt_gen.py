@@ -7,10 +7,13 @@ from scapy.all import *
 from hwsim_utils import *
 
 class Pkt_gen(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, vc_upd_pipe, pkt_in_pipe, num_pkts, burst_size):
+    def __init__(self, env, line_clk_period, sys_clk_period, vc_upd_pipe, pkt_out_pipe, flow_id, weight, quantum, num_pkts, burst_size):
         super(Pkt_gen, self).__init__(env, line_clk_period, sys_clk_period)
         self.vc_upd_pipe = vc_upd_pipe
-        self.pkt_in_pipe = pkt_in_pipe
+        self.pkt_out_pipe = pkt_out_pipe
+        self.flow_id = flow_id
+        self.weight = weight
+        self.quantum = quantum
         self.num_pkts = num_pkts
         self.burst_size = burst_size
         
@@ -19,25 +22,25 @@ class Pkt_gen(HW_sim_object):
 
     def run(self):
         self.env.process(self.vc_upd())
-        self.env.process(self.pkt_gen())
+        self.env.process(self.pkt_gen(self.flow_id))
 
     def vc_upd(self):
         """ wait for VC update
             add VC update to VC
         """
         while True:
-            vc_incr = yield self.vc_upd_pipe.get()
-            self.vc += vc_incr
+            self.vc = yield self.vc_upd_pipe.get()
             #print ("VC Update: {}".format(self.vc))
                     
-    def pkt_gen(self):
+    def pkt_gen(self, flow_id):
         """
         Loop for number of test packets with backpressure off
             - Generate packet
             - Wait packet time including preamble and IFG
         """
-        pkt_lst = list()
+        #pkt_lst = list()
         i = 0
+        fin_time = 0
         while i < self.num_pkts:
             j = 0
             burst_len = 0
@@ -45,15 +48,15 @@ class Pkt_gen(HW_sim_object):
                 pyld = ''.join(choice(ascii_uppercase) for k in range(randint(6, 1460)))
                 # create the test packets
                 pkt = Ether()/IP()/TCP()/Raw(load=pyld)
-                rank = self.vc + random.sample(range(0, 100), 1)[0]
-                pkt_id = i
-                tuser = Tuser(len(pkt), 0b00000001, 0b00000100, rank, pkt_id)
+                fin_time = max(fin_time, self.vc) + round((len(pkt)/self.quantum)/self.weight)
+                pkt_id = (flow_id, i)
+                tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
                 burst_len += len(pkt)
                 print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
-                pkt_lst.append((pkt, tuser))
+                #pkt_lst.append((pkt, tuser))
 
                 # write the pkt and metadata into storage
-                self.pkt_in_pipe.put((pkt, tuser))
+                self.pkt_out_pipe.put((pkt, tuser))
 
                 j += 1
                 i += 1
