@@ -46,7 +46,9 @@ class Top_tb(HW_sim_object):
 
     def top_tb(self):
         while True:
-            self.vc_upd_pipe.put(self.vc)
+            print ("Top VC: {0}".format(self.vc))
+            for i in range(self.num_flows):
+                self.vc_upd_pipe.put(self.vc)
             yield self.env.timeout(1000)
             self.vc += 1
         

@@ -30,6 +30,7 @@ class Pkt_gen(HW_sim_object):
         """
         while True:
             self.vc = yield self.vc_upd_pipe.get()
+            print ("Pkt Gen {0} VC: {1}".format(self.flow_id, self.vc))
             #print ("VC Update: {}".format(self.vc))
                     
     def pkt_gen(self, flow_id):
@@ -38,7 +39,6 @@ class Pkt_gen(HW_sim_object):
             - Generate packet
             - Wait packet time including preamble and IFG
         """
-        #pkt_lst = list()
         i = 0
         fin_time = 0
         while i < self.num_pkts:
@@ -53,7 +53,6 @@ class Pkt_gen(HW_sim_object):
                 tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
                 burst_len += len(pkt)
                 print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
-                #pkt_lst.append((pkt, tuser))
 
                 # write the pkt and metadata into storage
                 self.pkt_out_pipe.put((pkt, tuser))
