@@ -10,7 +10,8 @@ class FIFO(HW_sim_object):
         self.write_latency = write_latency
         self.read_latency = read_latency
         self.maxsize = maxsize
-        self.items = init_items
+        self.items = init_items # do we still need this
+        self.bytes = 0
 
         # register processes for simulation
         self.run()
@@ -31,6 +32,7 @@ class FIFO(HW_sim_object):
             # try to write data into FIFO
             if len(self.items) < self.maxsize:
                 self.items.append(data)
+                self.bytes = self.bytes + data.get_bytes() # we assume data here is packet
             else:
                 print >> sys.stderr, "ERROR: FIFO push_sm: FIFO full, cannot push {}".format(data)
             # indicate write_completion
@@ -51,6 +53,7 @@ class FIFO(HW_sim_object):
             if len(self.items) > 0:
                 data = self.items[0]
                 self.items = self.items[1:]
+                self.bytes = self.bytes - data.get_bytes() # we assume data here is packet
             else:
                 print >> sys.stderr, "ERROR: FIFO pop_sm: attempted to read from empty FIFO"
                 data = None
@@ -64,6 +67,9 @@ class FIFO(HW_sim_object):
 
     def get_len(self):
         return len(self.items)
+    
+    def get_bytes(self):
+        return self.bytes
     
     def peek_front(self):
         if not len(self.items) == 0:
