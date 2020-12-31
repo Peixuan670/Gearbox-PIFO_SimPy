@@ -7,10 +7,17 @@ from packet import Packet_descriptior
 from queues import *
 
 class Pkt_sched(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, ptr_in_pipe, ptr_out_pipe):
+    def __init__(self, env, line_clk_period, sys_clk_period, ptr_in_pipe, ptr_out_pipe, pkt_mon_rdy, vc_upd_pipe):
         super(Pkt_sched, self).__init__(env, line_clk_period, sys_clk_period)
         self.ptr_in_pipe = ptr_in_pipe
         self.ptr_out_pipe = ptr_out_pipe
+        self.pkt_mon_rdy = pkt_mon_rdy
+
+        # 12312020 Peixuan: test vc
+        self.vc_upd_pipe = vc_upd_pipe
+
+        self.vc = 0
+        self.prev_fifo = 0
 
         # blevel
         self.enq_pipe_cmd = simpy.Store(env)
@@ -70,25 +77,43 @@ class Pkt_sched(HW_sim_object):
 
     def sched_deq(self):
         while True:
-            # wait for 10 cycles
-            #for j in range(10):
-            yield self.wait_sys_clks(1)
-            
-            if self.blevel.get_pkt_cnt() > 0:
-                current_fifo_index = self.blevel.get_cur_fifo()
-                self.find_earliest_fifo_pipe_req.put(current_fifo_index)
-                deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
-                self.deq_pipe_req.put(deque_fifo)
-                pkt_des = yield self.deq_pipe_dat.get()
-                print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                # update vc
-                pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug?
-                self.blevel.update_vc(pkt_ft)
-                #((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
-                head_seg_ptr = pkt_des.get_hdr_addr()
-                meta_ptr = pkt_des.get_meta_addr()
-                tuser = pkt_des.get_tuser()
+            # wait rdy from pkt mon
+            yield self.pkt_mon_rdy.get()
+            print ("got ready from pkt mon")
+
+            while True:
+                # wait for 10 cycles
+                #for j in range(10):
+                yield self.wait_sys_clks(1)
+
+                if self.blevel.get_pkt_cnt() > 0:
+                    current_fifo_index = self.blevel.get_cur_fifo()
+
+                    # 12312020 Peixuan test
+                    if not self.prev_fifo == current_fifo_index:
+                        self.prev_fifo = current_fifo_index
+                        self.vc = self.vc + 1
+                        for i in range(4): # TODO: already known magic number
+                            self.vc_upd_pipe.put(self.vc)
+                        self.blevel.update_vc(self.vc)
+
+                    self.find_earliest_fifo_pipe_req.put(current_fifo_index)
+                    deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
+                    self.deq_pipe_req.put(deque_fifo)
+                    data = yield self.deq_pipe_dat.get()
+                    #print ("*****Data from scheduler is: {}".format(data))
+                    pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>
+                    print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                    # update vc
+                    pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug?
+                    self.blevel.update_vc(pkt_ft)
+                    #((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
+                    head_seg_ptr = pkt_des.get_hdr_addr()
+                    meta_ptr = pkt_des.get_meta_addr()
+                    tuser = pkt_des.get_tuser()
                 
-                print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
-                # submit read request
-                self.ptr_in_pipe.put((head_seg_ptr, meta_ptr))
+                    print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
+                    # submit read request
+                    self.ptr_in_pipe.put((head_seg_ptr, meta_ptr))
+
+

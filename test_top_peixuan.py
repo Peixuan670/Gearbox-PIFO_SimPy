@@ -3,32 +3,42 @@
 import simpy
 from hwsim_utils import *
 from pkt_gen import *
+from pkt_mux import *
 from packet_storage import *
-from pkt_sched_level import *
+from pkt_sched_blevel import *
 from pkt_mon import *
 
 class Top_tb(HW_sim_object):
     def __init__(self, env, line_clk_period, sys_clk_period):
         super(Top_tb, self).__init__(env, line_clk_period, sys_clk_period)
+        self.num_flows = 4
         self.ptr_in_pipe = simpy.Store(env)
         self.ptr_out_pipe = simpy.Store(env)
         self.vc_upd_pipe = simpy.Store(env)
-        self.bp_upd_pipe = simpy.Store(env)
-        self.pkt_in_pipe = simpy.Store(env)
-        self.pkt_out_pipe = simpy.Store(env)
+        self.sched_vc_pipe = simpy.Store(env) # 12312020 Peixuan test
+        self.pkt_gen_pipes = [simpy.Store(env)] * self.num_flows
+        self.pkt_mux_pipe = simpy.Store(env)
+        self.pkt_store_pipe = simpy.Store(env)
+        self.pkt_mon_rdy = simpy.Store(env)
 
-        self.num_test_pkts = 10
+        self.weights = [0.65, 0.20, 0.10, 0.05]
+        self.quantum = 64 # bytes
+        self.num_test_pkts = [25, 25, 25, 25]
+        self.burst_size = [5, 5, 5, 5]
 
-        self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, self.vc_upd_pipe, \
-                               self.bp_upd_pipe, self.pkt_in_pipe, self.num_test_pkts)
-        self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_in_pipe, \
-                                     self.pkt_out_pipe, self.ptr_in_pipe, self.ptr_out_pipe)
+        self.pkt_gen = list()
+        for f in range(self.num_flows):
+            self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, self.vc_upd_pipe, \
+                                   self.pkt_gen_pipes[f], f, self.weights[f], self.quantum, \
+                                   self.num_test_pkts[f], self.burst_size[f])
+        self.pkt_mux = Pkt_mux(env, line_clk_period, sys_clk_period, self.pkt_gen_pipes, self.pkt_mux_pipe)
+        self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_mux_pipe, \
+                                     self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.ptr_in_pipe, \
-                                  self.ptr_out_pipe)
-        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_out_pipe)
+                                  self.ptr_out_pipe, self.pkt_mon_rdy, self.sched_vc_pipe)
+        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_store_pipe, self.pkt_mon_rdy)
         
         self.vc = 0
-        self.bp = 0
         
         self.run()
 
@@ -37,8 +47,13 @@ class Top_tb(HW_sim_object):
 
     def top_tb(self):
         while True:
-            self.vc_upd_pipe.put(self.env.now)
-            yield self.env.timeout(1)
+            updated_vc = yield self.sched_vc_pipe.get()
+            self.vc = updated_vc
+            print ("Top VC: {0}".format(self.vc))
+            for i in range(self.num_flows):
+                self.vc_upd_pipe.put(self.vc)
+            #yield self.env.timeout(1000)
+            #self.vc += 1
         
 def main():
     env = simpy.Environment(0.0)
@@ -47,7 +62,7 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=10000)
+    env.run(until=1000000)
 
 if __name__ == "__main__":
     main()
