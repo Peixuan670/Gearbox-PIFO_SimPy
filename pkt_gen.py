@@ -30,8 +30,7 @@ class Pkt_gen(HW_sim_object):
         """
         while True:
             self.vc = yield self.vc_upd_pipe.get()
-            print ("Pkt Gen {0} VC: {1}".format(self.flow_id, self.vc))
-            #print ("VC Update: {}".format(self.vc))
+            #print ("Pkt Gen {0} VC: {1}".format(self.flow_id, self.vc))
                     
     def pkt_gen(self, flow_id):
         """
@@ -42,28 +41,36 @@ class Pkt_gen(HW_sim_object):
         i = 0
         fin_time = 0
         while i < self.num_pkts:
-            j = 0
+            #j = 0
             burst_len = 0
-            while j < self.burst_size:
-                pyld = ''.join(choice(ascii_uppercase) for k in range(randint(6, 1460)))
-                # create the test packets
-                pkt = Ether()/IP()/TCP()/Raw(load=pyld)
-                fin_time = max(fin_time, self.vc) + round((len(pkt)/self.quantum)/self.weight)
-                pkt_id = (flow_id, i)
-                tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
-                burst_len += len(pkt)
-                print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
+            #while j < self.burst_size:
+            pyld = ''.join(choice(ascii_uppercase) for k in range(randint(6, 1460)))
+            # create the test packets
+            pkt = Ether()/IP()/TCP()/Raw(load=pyld)
+            fin_time = max(fin_time, self.vc) + round((len(pkt)/self.quantum)/self.weight)
+            pkt_id = (flow_id, i)
+            tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
+            burst_len += len(pkt)
+            print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
 
-                # write the pkt and metadata into storage
-                self.pkt_out_pipe.put((pkt, tuser))
+            # write the pkt and metadata into storage
+            self.pkt_out_pipe.put((pkt, tuser))
 
-                j += 1
-                i += 1
-                if i == self.num_pkts:
-                    break
+            #j += 1
+            i += 1
+            if i == self.num_pkts:
+                break
                     
             # wait a number of clock cycles equivalent to the transmission time of the burst of packets
             #for j in range(PREAMBLE + len(pkt) + IFG):
-            yield self.wait_line_clks(j*self.PREAMBLE + burst_len + j*self.IFG)
+            #yield self.wait_line_clks(j*self.PREAMBLE + burst_len + j*self.IFG)
+            #print ("f: {} - pkt end: {}".format(self.flow_id, self.env.now))
+            yield self.wait_line_clks(self.PREAMBLE + burst_len + self.IFG)
+            #print ("f: {} - IFG end: {}".format(self.flow_id, self.env.now))
+            
+            # Insert another random gap
+            yield self.wait_line_clks(randint(0, 128)) # average gap is 64 bytes
+            #print ("f: {} - rdm int end: {}".format(self.flow_id, self.env.now))
+            
             
 

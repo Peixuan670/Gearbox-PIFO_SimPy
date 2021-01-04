@@ -35,7 +35,8 @@ class Top_tb(HW_sim_object):
                                      self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.ptr_in_pipe, \
                                   self.ptr_out_pipe, self.pkt_mon_rdy)
-        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_store_pipe, self.pkt_mon_rdy)
+        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_store_pipe, \
+                               self.num_flows, self.num_test_pkts, self.pkt_mon_rdy)
         
         self.vc = 0
         
@@ -46,7 +47,7 @@ class Top_tb(HW_sim_object):
 
     def top_tb(self):
         while True:
-            print ("Top VC: {0}".format(self.vc))
+            #print ("Top VC: {0}".format(self.vc))
             for i in range(self.num_flows):
                 self.vc_upd_pipe.put(self.vc)
             yield self.env.timeout(1000)
@@ -59,7 +60,7 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=1000000)
+    env.run(until=100000)
 
 if __name__ == "__main__":
     main()
