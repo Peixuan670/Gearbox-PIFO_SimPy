@@ -56,7 +56,7 @@ class Pkt_mon(HW_sim_object):
             pkt_num = tuser_out.pkt_id[1]
             print ("Rx rank: {} flow_id: {} pkt_num: {}".format(rank, flow_id, pkt_num))
             pkt_lst[flow_id].append(pkt_num)
-            rank_lst.append(rank)
+            rank_lst.append((flow_id, pkt_num, rank))
             # wait number of clocks corresponding to packet preamble, packet length and IFG
             yield self.wait_line_clks(self.PREAMBLE + pkt_out.len + self.IFG)
             # flip index
@@ -75,8 +75,10 @@ class Pkt_mon(HW_sim_object):
         #print ("Ranks: {}".format(rank_lst))
         sched_err_cnt = 0
         for i in range(len(rank_lst)-1):
-            if rank_lst[i] > rank_lst[i+1]:
-                print ("Scheduler Error: fin time[{}]: {} > fin time[{}]: {}".format(i, rank_lst[i], i+1, rank_lst[i+1]))
+            if rank_lst[i][2] > rank_lst[i+1][2]:
+                print ("Scheduler Error: fin time[{}]: f:{} p:{} r:{} > fin time[{}]: f:{} p:{} r:{}".\
+                       format(i, rank_lst[i][0], rank_lst[i][1], rank_lst[i][2], \
+                              i+1, rank_lst[i+1][0], rank_lst[i+1][1], rank_lst[i+1][2]))
                 sched_err_cnt += 1
         if (sched_err_cnt != 0):
             print ("Number of scheduler errors = {}".format(sched_err_cnt))
