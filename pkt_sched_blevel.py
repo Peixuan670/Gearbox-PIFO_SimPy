@@ -90,12 +90,14 @@ class Pkt_sched(HW_sim_object):
                     current_fifo_index = self.blevel.get_cur_fifo()
 
                     # 12312020 Peixuan test
-                    if not self.prev_fifo == current_fifo_index:
+                    '''if not self.prev_fifo == current_fifo_index:
                         self.prev_fifo = current_fifo_index
-                        self.vc = self.vc + 1
-                        for i in range(4): # TODO: already known magic number
-                            self.vc_upd_pipe.put(self.vc)
+                        self.vc = self.vc + self.blevel.granularity
+                        #for i in range(4): # TODO: already known magic number
+                        #    self.vc_upd_pipe.put(self.vc)
+                        self.vc_upd_pipe.put(self.vc)
                         self.blevel.update_vc(self.vc)
+                        print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debug'''
 
                     self.find_earliest_fifo_pipe_req.put(current_fifo_index)
                     deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
@@ -105,8 +107,14 @@ class Pkt_sched(HW_sim_object):
                     pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>
                     print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
                     # update vc
-                    pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug?
-                    self.blevel.update_vc(pkt_ft)
+                    pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug? # 01062020 Peixuan: only update vc from top level
+                    self.blevel.update_vc(pkt_ft)                                      # 01062020 Peixuan: only update vc from top level
+                    if self.vc < pkt_ft:
+                        self.vc = pkt_ft
+                        self.vc_upd_pipe.put(self.vc)
+                        print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debug
+
+
                     #((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
                     head_seg_ptr = pkt_des.get_hdr_addr()
                     meta_ptr = pkt_des.get_meta_addr()

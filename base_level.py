@@ -36,6 +36,9 @@ class Base_level(HW_sim_object):
 
         # Initialize pkt cnt
         self.pkt_cnt = 0
+
+        # Peixuan debug counter
+        self.vc_fall_behind_cnt = 0
         
         # Initialize FIFO array and read/write handle
         
@@ -98,7 +101,16 @@ class Base_level(HW_sim_object):
                 if fifo_index_offset < 0:
                     fifo_index_offset = 0 # if pkt's finish time has passed, enque the current fifo
                 # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
+                if fifo_index_offset > self.fifo_num: # ignore the pkt if overflow
+                    print("fifo_index_offset = {}".format(fifo_index_offset))
+                    print("fifo num = {}".format(self.fifo_num))
+                    print("pkt overflow")
+                #    continue
                 enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
+                print("Enq: @ VC = {}, pkt with rank {} enqueued fifo {}".format(self.vc, pkt.get_finish_time(debug=False), enque_fifo_index)) # Peixuan debug
+                if (self.vc > pkt.get_finish_time(debug=False)):                            # Peixuan debug
+                    self.vc_fall_behind_cnt = self.vc_fall_behind_cnt + 1                   # Peixuan debug
+                    print("System fall behind VC cnt: {}".format(self.vc_fall_behind_cnt))  # Peixuan debug
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
                 #self.enq_pipe_sts.put(1)
@@ -156,6 +168,7 @@ class Base_level(HW_sim_object):
         # update current serving fifo
         if self.fifos[self.cur_fifo].get_len() == 0:
             self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
+        print("updated blevel vc = {}".format(self.vc)) # Peixuan debug
         return self.vc
     
     def get_vc(self):

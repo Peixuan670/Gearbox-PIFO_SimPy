@@ -21,9 +21,9 @@ class Top_tb(HW_sim_object):
         self.pkt_store_pipe = simpy.Store(env)
         self.pkt_mon_rdy = simpy.Store(env)
 
-        self.weights = [0.65, 0.20, 0.10, 0.05]
+        self.weights = [2, 2, 1, 1]
         self.quantum = 64 # bytes
-        self.num_test_pkts = [25, 25, 25, 25]
+        self.num_test_pkts = [15, 1, 1, 15]
         self.burst_size = [5, 5, 5, 5]
 
         self.pkt_gen = list()
@@ -36,7 +36,8 @@ class Top_tb(HW_sim_object):
                                      self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.ptr_in_pipe, \
                                   self.ptr_out_pipe, self.pkt_mon_rdy, self.sched_vc_pipe)
-        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_store_pipe, self.pkt_mon_rdy)
+        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_store_pipe, \
+                               self.num_flows, self.num_test_pkts, self.pkt_mon_rdy)
         
         self.vc = 0
         
@@ -50,6 +51,7 @@ class Top_tb(HW_sim_object):
             updated_vc = yield self.sched_vc_pipe.get()
             self.vc = updated_vc
             print ("Top VC: {0}".format(self.vc))
+            print("updated top vc = {}".format(self.vc)) # Peixuan debug
             for i in range(self.num_flows):
                 self.vc_upd_pipe.put(self.vc)
             #yield self.env.timeout(1000)
