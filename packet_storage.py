@@ -126,7 +126,7 @@ class Pkt_storage(HW_sim_object):
         """
         while True:
             # wait for a read request
-            (head_seg_ptr, meta_ptr) = yield self.ptr_in_pipe.get()
+            (head_seg_ptr, meta_ptr, tuser_in) = yield self.ptr_in_pipe.get()
 
             # read the metadata
             self.metadata_r_in_pipe.put(meta_ptr) # send read request
@@ -151,5 +151,5 @@ class Pkt_storage(HW_sim_object):
             # reconstruct the final scapy packet
             pkt = Ether(pkt_raw)
             # Write the final pkt and metadata
-            self.pkt_out_pipe.put((pkt, tuser))
+            self.pkt_out_pipe.put((pkt, tuser_in))
 

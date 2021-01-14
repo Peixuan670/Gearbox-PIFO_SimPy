@@ -66,11 +66,19 @@ class Pkt_sched(HW_sim_object):
         self.env.process(self.sched_deq())
 
     def sched_enq(self):
+        prev_fin_time_lst = [0] * 4
         while True:
             (head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
             #self.ptr_list.append((head_seg_ptr, meta_ptr, tuser))
-            print ('@ {:.2f} - Enqueue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
-            pkt_des = Packet_descriptior(head_seg_ptr, meta_ptr, tuser)
+            print ('@ {:.2f} - Enqueue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.\
+                   format(self.env.now, head_seg_ptr, meta_ptr, tuser))
+            flow_id = tuser.pkt_id[0]
+            fin_time = max(prev_fin_time_lst[flow_id], self.vc) + tuser.rank
+            prev_fin_time_lst[flow_id] = fin_time
+            tuser_out = Tuser(tuser.pkt_len, fin_time, tuser.pkt_id)
+            print ('@ {:.2f} - Enqueue: tuser_out = {}'.\
+                   format(self.env.now, tuser_out))
+            pkt_des = Packet_descriptior(head_seg_ptr, meta_ptr, tuser_out)
             print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
             self.enq_pipe_cmd.put(pkt_des)
             yield self.enq_pipe_sts.get()
@@ -122,6 +130,6 @@ class Pkt_sched(HW_sim_object):
                 
                     print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
                     # submit read request
-                    self.ptr_in_pipe.put((head_seg_ptr, meta_ptr))
+                    self.ptr_in_pipe.put((head_seg_ptr, meta_ptr, tuser))
 
 

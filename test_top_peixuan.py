@@ -21,9 +21,9 @@ class Top_tb(HW_sim_object):
         self.pkt_store_pipe = simpy.Store(env)
         self.pkt_mon_rdy = simpy.Store(env)
 
-        self.weights = [2, 2, 1, 1]
+        self.weights = [1, 1, 1, 1]
         self.quantum = 64 # bytes
-        self.num_test_pkts = [15, 1, 1, 15]
+        self.num_test_pkts = [25, 25, 25, 25]
         self.burst_size = [5, 5, 5, 5]
 
         self.pkt_gen = list()

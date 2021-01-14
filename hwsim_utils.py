@@ -8,15 +8,17 @@ PREAMBLE = 8
 IFG = 12
 
 class Tuser(object):
-    def __init__(self, pkt_len, src_port, dst_port, rank, pkt_id):
+    #def __init__(self, pkt_len, src_port, dst_port, rank, pkt_id):
+    def __init__(self, pkt_len, rank, pkt_id):
         self.pkt_len = pkt_len
-        self.src_port = src_port
-        self.dst_port = dst_port
+        #self.src_port = src_port
+        #self.dst_port = dst_port
         self.rank = rank
         self.pkt_id = pkt_id # used for stats only
 
     def __str__(self):
-        return '{{ pkt_len: {}, src_port: {:08b}, dst_port: {:08b}, rank: {}, pkt_id: {} }}'.format(self.pkt_len, self.src_port, self.dst_port, self.rank, self.pkt_id)
+        #return '{{ pkt_len: {}, src_port: {:08b}, dst_port: {:08b}, rank: {}, pkt_id: {} }}'.format(self.pkt_len, self.src_port, self.dst_port, self.rank, self.pkt_id)
+        return '{{ pkt_len: {}, rank: {}, pkt_id: {} }}'.format(self.pkt_len, self.rank, self.pkt_id)
 
 class Fifo(object):
     def __init__(self, maxsize):

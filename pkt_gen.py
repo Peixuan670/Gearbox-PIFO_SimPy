@@ -21,15 +21,15 @@ class Pkt_gen(HW_sim_object):
         self.run()
 
     def run(self):
-        self.env.process(self.vc_upd())
+        #self.env.process(self.vc_upd())
         self.env.process(self.pkt_gen(self.flow_id))
 
-    def vc_upd(self):
-        """ wait for VC update
-            add VC update to VC
-        """
-        while True:
-            self.vc = yield self.vc_upd_pipe.get()
+    #def vc_upd(self):
+        #""" wait for VC update
+        #    add VC update to VC
+        #"""
+        #while True:
+            #self.vc = yield self.vc_upd_pipe.get()
             #print ("Pkt Gen {0} VC: {1}".format(self.flow_id, self.vc))
                     
     def pkt_gen(self, flow_id):
@@ -47,9 +47,11 @@ class Pkt_gen(HW_sim_object):
             pyld = ''.join(choice(ascii_uppercase) for k in range(randint(6, 1460)))
             # create the test packets
             pkt = Ether()/IP()/TCP()/Raw(load=pyld)
-            fin_time = max(fin_time, self.vc) + round((len(pkt)/self.quantum)/self.weight)
+            #fin_time = max(fin_time, self.vc) + round((len(pkt)/self.quantum)/self.weight)
+            fin_time = round((len(pkt)/self.quantum)/self.weight)
             pkt_id = (flow_id, i)
-            tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
+            #tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
+            tuser = Tuser(len(pkt), fin_time, pkt_id)
             burst_len += len(pkt)
             print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
 
