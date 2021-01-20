@@ -7,7 +7,7 @@ from packet import Packet_descriptior
 from queues import *
 
 class Pkt_sched(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, ptr_in_pipe, ptr_out_pipe, pkt_mon_rdy, vc_upd_pipe):
+    def __init__(self, env, line_clk_period, sys_clk_period, ptr_in_pipe, ptr_out_pipe, pkt_mon_rdy, vc_upd_pipe, drop_pipe):
         super(Pkt_sched, self).__init__(env, line_clk_period, sys_clk_period)
         self.ptr_in_pipe = ptr_in_pipe
         self.ptr_out_pipe = ptr_out_pipe
@@ -15,7 +15,8 @@ class Pkt_sched(HW_sim_object):
 
         # 12312020 Peixuan: test vc
         self.vc_upd_pipe = vc_upd_pipe
-
+        self.drop_pipe = drop_pipe
+        
         self.vc = 0
         self.prev_fifo = 0
 
@@ -52,7 +53,7 @@ class Pkt_sched(HW_sim_object):
 
         self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity, fifo_size, \
                         self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
-                        self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
+                        self.drop_pipe, self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
                         self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
                         fifo_write_latency=1, fifo_read_latency=1, \
                         fifo_check_latency=1, fifo_num=10, initial_vc=0)

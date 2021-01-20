@@ -54,7 +54,7 @@ class Pkt_mon(HW_sim_object):
             rank = tuser_out.rank
             flow_id = tuser_out.pkt_id[0]
             pkt_num = tuser_out.pkt_id[1]
-            print ("Rx rank: {} flow_id: {} pkt_num: {}".format(rank, flow_id, pkt_num))
+            print ("pkt rcvd: Rx rank: {} flow_id: {} pkt_num: {}".format(rank, flow_id, pkt_num))
             pkt_lst[flow_id].append(pkt_num)
             rank_lst.append((flow_id, pkt_num, rank))
             # wait number of clocks corresponding to packet preamble, packet length and IFG

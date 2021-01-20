@@ -7,9 +7,8 @@ from scapy.all import *
 from hwsim_utils import *
 
 class Pkt_gen(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, vc_upd_pipe, pkt_out_pipe, flow_id, weight, quantum, num_pkts, burst_size):
+    def __init__(self, env, line_clk_period, sys_clk_period, pkt_out_pipe, flow_id, weight, quantum, num_pkts, burst_size):
         super(Pkt_gen, self).__init__(env, line_clk_period, sys_clk_period)
-        self.vc_upd_pipe = vc_upd_pipe
         self.pkt_out_pipe = pkt_out_pipe
         self.flow_id = flow_id
         self.weight = weight
@@ -17,20 +16,10 @@ class Pkt_gen(HW_sim_object):
         self.num_pkts = num_pkts
         self.burst_size = burst_size
         
-        self.vc = 0
         self.run()
 
     def run(self):
-        #self.env.process(self.vc_upd())
         self.env.process(self.pkt_gen(self.flow_id))
-
-    #def vc_upd(self):
-        #""" wait for VC update
-        #    add VC update to VC
-        #"""
-        #while True:
-            #self.vc = yield self.vc_upd_pipe.get()
-            #print ("Pkt Gen {0} VC: {1}".format(self.flow_id, self.vc))
                     
     def pkt_gen(self, flow_id):
         """
@@ -47,13 +36,11 @@ class Pkt_gen(HW_sim_object):
             pyld = ''.join(choice(ascii_uppercase) for k in range(randint(6, 1460)))
             # create the test packets
             pkt = Ether()/IP()/TCP()/Raw(load=pyld)
-            #fin_time = max(fin_time, self.vc) + round((len(pkt)/self.quantum)/self.weight)
             fin_time = round((len(pkt)/self.quantum)/self.weight)
             pkt_id = (flow_id, i)
-            #tuser = Tuser(len(pkt), 0b00000001, 0b00000100, fin_time, pkt_id)
             tuser = Tuser(len(pkt), fin_time, pkt_id)
             burst_len += len(pkt)
-            print ('@ {:.2f} - VC: {} - Send:    {} || {}'.format(self.env.now, self.vc, pkt.summary(), tuser))
+            print ('@ {:.2f} - Send:    {} || {}'.format(self.env.now, pkt.summary(), tuser))
 
             # write the pkt and metadata into storage
             self.pkt_out_pipe.put((pkt, tuser))

@@ -22,7 +22,7 @@ class Pkt_segment(object):
 
 
 class Pkt_storage(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, pkt_in_pipe, pkt_out_pipe, ptr_in_pipe, ptr_out_pipe, max_segments=MAX_SEGMENTS, max_pkts=MAX_PKTS, rd_latency=1, wr_latency=1):
+    def __init__(self, env, line_clk_period, sys_clk_period, pkt_in_pipe, pkt_out_pipe, ptr_in_pipe, ptr_out_pipe, drop_pipe, max_segments=MAX_SEGMENTS, max_pkts=MAX_PKTS, rd_latency=1, wr_latency=1):
         super(Pkt_storage, self).__init__(env, line_clk_period, sys_clk_period)
 
         # read the incoming pkt and metadata from here
@@ -34,6 +34,9 @@ class Pkt_storage(HW_sim_object):
         self.ptr_in_pipe = ptr_in_pipe
         # write the outgoing head_seg_ptr and metadata_ptr into here
         self.ptr_out_pipe = ptr_out_pipe
+        
+        # drop request
+        self.drop_pipe = drop_pipe
 
         self.segments_r_in_pipe = simpy.Store(env)
         self.segments_r_out_pipe = simpy.Store(env)
@@ -118,38 +121,62 @@ class Pkt_storage(HW_sim_object):
 
     def removal_sm(self):
         """
-        Receives requests to dequeue pkts and metadata from storage
+        Receives requests to dequeue (or drop) pkts and metadata from storage
         Reads:
           - self.ptr_in_pipe
+          - self.drop_pipe
         Writes:
           - self.pkt_out_pipe
         """
         while True:
             # wait for a read request
-            (head_seg_ptr, meta_ptr, tuser_in) = yield self.ptr_in_pipe.get()
-
-            # read the metadata
-            self.metadata_r_in_pipe.put(meta_ptr) # send read request
-            tuser = yield self.metadata_r_out_pipe.get() # wait for response
-            self.free_meta_list.push(meta_ptr) # add meta_ptr to free list
+            deq_req = self.ptr_in_pipe.get()
+            drp_req = self.drop_pipe.get()
+            deq_drp_reqs = yield deq_req | drp_req
+            # dequeue request
+            if deq_req in deq_drp_reqs:
+                (head_seg_ptr, meta_ptr, tuser_in) = deq_drp_reqs[deq_req]
+                # read the metadata
+                self.metadata_r_in_pipe.put(meta_ptr) # send read request
+                tuser = yield self.metadata_r_out_pipe.get() # wait for response
+                self.free_meta_list.push(meta_ptr) # add meta_ptr to free list
    
-            # read the packet
-            pkt_raw = array.array('B')
-            cur_seg_ptr = head_seg_ptr
-            while (cur_seg_ptr is not None):
-                # send the read request
-                self.segments_r_in_pipe.put(cur_seg_ptr)
-                # wait for response
-                pkt_seg = yield self.segments_r_out_pipe.get()
+                # read the packet
+                pkt_raw = array.array('B')
+                cur_seg_ptr = head_seg_ptr
+                while (cur_seg_ptr is not None):
+                    # send the read request
+                    self.segments_r_in_pipe.put(cur_seg_ptr)
+                    # wait for response
+                    pkt_seg = yield self.segments_r_out_pipe.get()
 
-                pkt_raw.extend(pkt_seg.tdata)
-                # add segment to free list
-                self.free_seg_list.push(cur_seg_ptr)
-                cur_seg_ptr = pkt_seg.next_seg
-                yield self.wait_sys_clks(1)
+                    pkt_raw.extend(pkt_seg.tdata)
+                    # add segment to free list
+                    self.free_seg_list.push(cur_seg_ptr)
+                    cur_seg_ptr = pkt_seg.next_seg
+                    yield self.wait_sys_clks(1)
     
-            # reconstruct the final scapy packet
-            pkt = Ether(pkt_raw)
-            # Write the final pkt and metadata
-            self.pkt_out_pipe.put((pkt, tuser_in))
+                # reconstruct the final scapy packet
+                pkt = Ether(pkt_raw)
+                # Write the final pkt and metadata
+                self.pkt_out_pipe.put((pkt, tuser_in))
+            else:
+                deq_req.cancel()
+            
+            # drop request   
+            if drp_req in deq_drp_reqs:
+                (head_seg_ptr, meta_ptr, tuser_in) = deq_drp_reqs[drp_req]
+                self.free_meta_list.push(meta_ptr) # add meta_ptr to free list
+                cur_seg_ptr = head_seg_ptr
+                while (cur_seg_ptr is not None):
+                    # send the read request
+                    self.segments_r_in_pipe.put(cur_seg_ptr)
+                    # wait for response
+                    pkt_seg = yield self.segments_r_out_pipe.get()
+                    self.free_seg_list.push(cur_seg_ptr)
+                    cur_seg_ptr = pkt_seg.next_seg
+                    yield self.wait_sys_clks(1)
+            else:
+                drp_req.cancel()
+            
 
