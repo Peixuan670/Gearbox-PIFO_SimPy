@@ -168,11 +168,14 @@ class Pkt_storage(HW_sim_object):
                 (head_seg_ptr, meta_ptr, tuser_in) = deq_drp_reqs[drp_req]
                 self.free_meta_list.push(meta_ptr) # add meta_ptr to free list
                 cur_seg_ptr = head_seg_ptr
+                yield self.wait_sys_clks(3)
                 while (cur_seg_ptr is not None):
                     # send the read request
                     self.segments_r_in_pipe.put(cur_seg_ptr)
                     # wait for response
                     pkt_seg = yield self.segments_r_out_pipe.get()
+                    if pkt_seg == None:
+                        print ("!!!!! pkt_seg = None !!!!!")
                     self.free_seg_list.push(cur_seg_ptr)
                     cur_seg_ptr = pkt_seg.next_seg
                     yield self.wait_sys_clks(1)

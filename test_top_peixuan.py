@@ -60,7 +60,7 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=100000)
+    env.run(until=500000)
 
 if __name__ == "__main__":
     main()
