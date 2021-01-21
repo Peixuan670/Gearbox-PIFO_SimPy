@@ -55,6 +55,7 @@ class Pkt_sched(HW_sim_object):
                         self.enq_pipe_cmd, self.enq_pipe_sts, self.deq_pipe_req, self.deq_pipe_dat, \
                         self.drop_pipe, self.find_earliest_fifo_pipe_req, self.find_earliest_fifo_pipe_dat, \
                         self.fifo_r_in_pipe_arr, self.fifo_r_out_pipe_arr, self.fifo_w_in_pipe_arr, self.fifo_w_out_pipe_arr, \
+                        self.vc_upd_pipe, \
                         fifo_write_latency=1, fifo_read_latency=1, \
                         fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
@@ -118,6 +119,7 @@ class Pkt_sched(HW_sim_object):
                     # update vc
                     pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug? # 01062020 Peixuan: only update vc from top level
                     self.blevel.update_vc(pkt_ft)                                      # 01062020 Peixuan: only update vc from top level
+                    print("Updated blevel vc = {}".format(self.blevel.vc)) # Peixuan debug
                     if self.vc < pkt_ft:
                         self.vc = pkt_ft
                         self.vc_upd_pipe.put(self.vc)

@@ -11,6 +11,7 @@ class Base_level(HW_sim_object):
                  enq_pipe_cmd, enq_pipe_sts, deq_pipe_req, deq_pipe_dat, drop_pipe,\
                  find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
                  fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, \
+                 vc_upd_pipe, \
                  fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0):
                  
         super(Base_level, self).__init__(env, line_clk_period, sys_clk_period)
@@ -47,6 +48,8 @@ class Base_level(HW_sim_object):
         self.fifo_r_out_pipe_arr = fifo_r_out_pipe_arr
         self.fifo_w_in_pipe_arr = fifo_w_in_pipe_arr
         self.fifo_w_out_pipe_arr = fifo_w_out_pipe_arr
+
+        self.vc_upd_pipe = vc_upd_pipe
         
         index = 0
         while (index < self.fifo_num):
@@ -69,6 +72,7 @@ class Base_level(HW_sim_object):
         self.env.process(self.enqueue_p())
         self.env.process(self.dequeue_p())
         self.env.process(self.find_earliest_non_empty_fifo_p())
+        self.env.process(self.top_tb()) # blevel vc update
 
     # Public
     
@@ -105,7 +109,8 @@ class Base_level(HW_sim_object):
                 if fifo_index_offset > self.fifo_num: # ignore the pkt if overflow
                     print("fifo_index_offset = {}".format(fifo_index_offset))
                     print("fifo num = {}".format(self.fifo_num))
-                    print("pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
+                    #print("pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
+                    print("@VC = {}, pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(self.vc, pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
                     self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                     self.enq_pipe_sts.put((0, 0))
                     continue
@@ -172,6 +177,7 @@ class Base_level(HW_sim_object):
         if self.fifos[self.cur_fifo].get_len() == 0:
             self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
         print("updated blevel vc = {}".format(self.vc)) # Peixuan debug
+        print("@VC = {} , updated blevel vc = {}".format(self.vc, self.vc)) # Peixuan debug
         return self.vc
     
     def get_vc(self):
@@ -182,3 +188,9 @@ class Base_level(HW_sim_object):
     
     def get_pkt_cnt(self):
         return self.pkt_cnt
+    
+    def top_tb(self):
+        while True:
+            updated_vc = yield self.vc_upd_pipe.get()
+            self.vc = updated_vc
+            print("updated blevel vc = {}".format(self.vc)) # Peixuan debug
