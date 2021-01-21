@@ -77,7 +77,8 @@ class Pkt_sched(HW_sim_object):
                    format(self.env.now, head_seg_ptr, meta_ptr, tuser))
             flow_id = tuser.pkt_id[0]
             fin_time = max(prev_fin_time_lst[flow_id], self.vc) + tuser.rank
-            prev_fin_time_lst[flow_id] = fin_time
+            if self.blevel.fifo_num > (fin_time - self.vc):
+                prev_fin_time_lst[flow_id] = fin_time
             tuser_out = Tuser(tuser.pkt_len, fin_time, tuser.pkt_id)
             print ('@ {:.2f} - Enqueue: tuser_out = {}'.\
                    format(self.env.now, tuser_out))
