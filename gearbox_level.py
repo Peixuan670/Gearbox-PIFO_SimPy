@@ -92,13 +92,8 @@ class Gearbox_level(HW_sim_object):
     def enqueue_p(self):
 #    def enque(self, pkt):
         while True:
-            pkt = yield self.enq_pipe_cmd.get() 
+            (pkt, enque_fifo_index) = yield self.enq_pipe_cmd.get() 
             if not pkt == 0:
-                fifo_index_offset = math.floor(pkt.get_finish_time(debug=False) / self.granularity) - math.floor(self.vc / self.granularity)
-                if fifo_index_offset < 0:
-                    fifo_index_offset = 0 # if pkt's finish time has passed, enque the current fifo
-                # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
-                enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
                 #self.enq_pipe_sts.put(1)
@@ -171,3 +166,8 @@ class Gearbox_level(HW_sim_object):
         return self.pkt_cnt
 
     #def get_earliest_pkt_timestamp(self):
+
+    def get_first_non_empty_fifo(self):
+        fifo_index = self.cur_fifo
+        # TODO
+        return fifo_index
