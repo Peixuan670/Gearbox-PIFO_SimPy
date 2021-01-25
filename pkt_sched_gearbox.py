@@ -22,7 +22,7 @@ class Pkt_sched(HW_sim_object):
         self.vc = 0
         #self.prev_fifo = 0
 
-        # blevel
+        # gearbox enque pipe
         self.gb_enq_pipe_cmd = simpy.Store(env)
         self.gb_enq_pipe_sts = simpy.Store(env)
         self.gb_deq_pipe_req = simpy.Store(env)
@@ -34,27 +34,11 @@ class Pkt_sched(HW_sim_object):
         granularity_list = [100, 10, 1]
         fifo_size_list = [128, 128, 128]
 
-        # Initialize FIFO array and read/write handle
-        
-        self.fifo_r_in_pipe_arr = []
-        self.fifo_r_out_pipe_arr = []
-        self.fifo_w_in_pipe_arr = []
-        self.fifo_w_out_pipe_arr = []
-
-        index = 0
-        while (index < fifo_num):
-            self.fifo_r_in_pipe_arr.append(simpy.Store(env))
-            self.fifo_r_out_pipe_arr.append(simpy.Store(env))
-            self.fifo_w_in_pipe_arr.append(simpy.Store(env))
-            self.fifo_w_out_pipe_arr.append(simpy.Store(env)) 
-
-            index = index + 1
-
         # instantiate the Base_Level object
         
         self.gearbox = Gearbox_I(env, line_clk_period, sys_clk_period, \
                                 self.gb_enq_pipe_cmd, self.gb_enq_pipe_sts, self.gb_deq_pipe_req, self.gb_deq_pipe_dat, \
-                                self.gearbox_vc_upd_pipe, self.drop_pipe\
+                                self.gearbox_vc_upd_pipe, self.drop_pipe, \
                                 granularity_list, fifo_num_list, fifo_size_list, \
                                 fifo_check_latency=1, initial_vc=0)
 
@@ -65,10 +49,10 @@ class Pkt_sched(HW_sim_object):
     def run(self):
         self.env.process(self.sched_enq())
         self.env.process(self.sched_deq())
+        self.env.process(self.vc_update_p())
 
     def sched_enq(self):
         prev_fin_time_lst = [0] * 4
-        prev_enq_level_lst = [0] * 4 # TODO: This needs to be updated inside Gearbox
         while True:
             (head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
             #self.ptr_list.append((head_seg_ptr, meta_ptr, tuser))
@@ -76,15 +60,20 @@ class Pkt_sched(HW_sim_object):
                    format(self.env.now, head_seg_ptr, meta_ptr, tuser))
             flow_id = tuser.pkt_id[0]
             fin_time = max(prev_fin_time_lst[flow_id], self.vc) + tuser.rank
-            if self.blevel.fifo_num > (fin_time - self.vc):
-                prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
+            #if self.blevel.fifo_num > (fin_time - self.vc):
+            #    prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
             tuser_out = Tuser(tuser.pkt_len, fin_time, tuser.pkt_id)
             print ('@ {:.2f} - Enqueue: tuser_out = {}'.\
                    format(self.env.now, tuser_out))
             pkt_des = Packet_descriptior(head_seg_ptr, meta_ptr, tuser_out)
             print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
             self.gb_enq_pipe_cmd.put(pkt_des)
-            yield self.gb_enq_pipe_sts.get()
+
+            enq_success = yield self.gb_enq_pipe_sts.get()  # Enqued: return True; pkt dropped: return False
+
+            if enq_success:
+                prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
+
 
     def sched_deq(self):
         while True:
@@ -97,8 +86,8 @@ class Pkt_sched(HW_sim_object):
                 #for j in range(10):
                 yield self.wait_sys_clks(1)
 
-                if self.blevel.get_pkt_cnt() > 0:
-                    current_fifo_index = self.blevel.get_cur_fifo()
+                if self.gearbox.get_pkt_cnt() > 0:
+                    ##current_fifo_index = self.blevel.get_cur_fifo()
 
                     # 12312020 Peixuan test
                     '''if not self.prev_fifo == current_fifo_index:
@@ -110,14 +99,16 @@ class Pkt_sched(HW_sim_object):
                         self.blevel.update_vc(self.vc)
                         print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debug'''
 
-                    self.find_earliest_fifo_pipe_req.put(current_fifo_index)
-                    deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
-                    self.deq_pipe_req.put(deque_fifo)
-                    data = yield self.deq_pipe_dat.get()
+                    ##self.find_earliest_fifo_pipe_req.put(current_fifo_index)
+                    ##deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
+                    ##self.deq_pipe_req.put(deque_fifo)
+                    self.gb_deq_pipe_req.put()
+                    data = yield self.gb_deq_pipe_dat.get()
                     #print ("*****Data from scheduler is: {}".format(data))
                     pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>
                     print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                    # update vc
+                    
+                    '''# update vc
                     pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug? # 01062020 Peixuan: only update vc from top level
                     #self.blevel.update_vc(pkt_ft)                                      # 01062020 Peixuan: only update vc from top level
                     #print("Updated blevel vc = {}".format(self.blevel.vc)) # Peixuan debug
@@ -125,7 +116,7 @@ class Pkt_sched(HW_sim_object):
                         self.vc = pkt_ft
                         self.vc_upd_pipe.put(self.vc)
                         self.blevel_vc_upd_pipe.put(self.vc)
-                        print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debugS
+                        print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debug'''
 
 
                     #((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
@@ -136,5 +127,11 @@ class Pkt_sched(HW_sim_object):
                     print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
                     # submit read request
                     self.ptr_in_pipe.put((head_seg_ptr, meta_ptr, tuser))
+    
+    def vc_update_p(self):
+        while True:
+            updated_vc = yield self.gearbox_vc_upd_pipe.get()
+            self.vc = updated_vc
+            print ("updated pkt_sched vc = {}".format(self.vc))
 
 
