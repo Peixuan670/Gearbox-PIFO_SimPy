@@ -131,7 +131,7 @@ class Pkt_sched(HW_sim_object):
     
     def vc_update_p(self):
         while True:
-            updated_vc = yield .self.gearbox_vc_upd_pipe.get()
+            updated_vc = yield self.gearbox_vc_upd_pipe.get()
             self.vc = updated_vc
             print ("updated pkt_sched vc = {}".format(self.vc))
 
