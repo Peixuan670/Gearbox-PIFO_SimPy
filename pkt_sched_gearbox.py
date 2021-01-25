@@ -106,7 +106,8 @@ class Pkt_sched(HW_sim_object):
                     data = yield self.gb_deq_pipe_dat.get()
                     #print ("*****Data from scheduler is: {}".format(data))
                     pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>
-                    print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                    #print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
+                    print ('@ {} - From Gearbox dequed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
                     
                     '''# update vc
                     pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug? # 01062020 Peixuan: only update vc from top level
@@ -130,7 +131,7 @@ class Pkt_sched(HW_sim_object):
     
     def vc_update_p(self):
         while True:
-            updated_vc = yield self.gearbox_vc_upd_pipe.get()
+            updated_vc = yield .self.gearbox_vc_upd_pipe.get()
             self.vc = updated_vc
             print ("updated pkt_sched vc = {}".format(self.vc))
 
