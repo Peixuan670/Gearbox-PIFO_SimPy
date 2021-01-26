@@ -31,7 +31,7 @@ class Pkt_sched(HW_sim_object):
         #self.find_earliest_fifo_pipe_dat = simpy.Store(env)
         #self.fifo_num = fifo_num
         fifo_num_list = [10, 10, 10]
-        granularity_list = [100, 10, 1]
+        granularity_list = [1, 10, 100]
         fifo_size_list = [128, 128, 128]
 
         # instantiate the Base_Level object
@@ -102,7 +102,7 @@ class Pkt_sched(HW_sim_object):
                     ##self.find_earliest_fifo_pipe_req.put(current_fifo_index)
                     ##deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
                     ##self.deq_pipe_req.put(deque_fifo)
-                    self.gb_deq_pipe_req.put()
+                    self.gb_deq_pipe_req.put(1)     # put anything here to request for a deque
                     data = yield self.gb_deq_pipe_dat.get()
                     #print ("*****Data from scheduler is: {}".format(data))
                     pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>

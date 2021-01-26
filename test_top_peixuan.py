@@ -5,7 +5,8 @@ from hwsim_utils import *
 from pkt_gen import *
 from pkt_mux import *
 from packet_storage import *
-from pkt_sched_blevel import *
+#from pkt_sched_blevel import *
+from pkt_sched_gearbox import *
 from pkt_mon import *
 
 class Top_tb(HW_sim_object):
@@ -23,7 +24,7 @@ class Top_tb(HW_sim_object):
 
         self.weights = [1, 1, 1, 1]
         self.quantum = 64 # bytes
-        self.num_test_pkts = [25, 25, 25, 25]
+        self.num_test_pkts = [5, 5, 5, 5]
         self.burst_size = [5, 5, 5, 5]
 
         self.pkt_gen = list()
@@ -60,7 +61,7 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=500000)
+    env.run(until=50000)
 
 if __name__ == "__main__":
     main()

@@ -16,6 +16,8 @@ class Gearbox_I(HW_sim_object):
         granularity_list, fifo_num_list, fifo_size_list, \
         fifo_check_latency=1, initial_vc=0):
 
+        self.env = env
+        
         self.granularity_list = granularity_list
         self.fifo_num_list = fifo_num_list
         self.fifo_size_list = fifo_size_list
@@ -68,14 +70,15 @@ class Gearbox_I(HW_sim_object):
 
         # flags & bytes for deque
         #self.deque_flags = []        
-        self.deque_bytes = []
-        self.deque_served_bytes = []
+        self.deque_bytes = []           # bytes to be served for each level (as index)
+        self.deque_served_bytes = []    # bytes already served for each level (as index)
 
         index = 0
         while (index < self.level_num):
             #self.deque_flags.append(False)
             self.deque_bytes.append(0)
             self.deque_served_bytes.append(0)
+            index = index + 1
 
 
         # initiate levels for set A
@@ -88,11 +91,13 @@ class Gearbox_I(HW_sim_object):
             fifo_w_in_pipe_arr = []
             fifo_w_out_pipe_arr = []
 
-            while (index < self.fifo_num_list[index]):
+            fifo_index = 0
+            while (fifo_index < self.fifo_num_list[index]):
                 fifo_r_in_pipe_arr.append(simpy.Store(env))
                 fifo_r_out_pipe_arr.append(simpy.Store(env))
                 fifo_w_in_pipe_arr.append(simpy.Store(env))
                 fifo_w_out_pipe_arr.append(simpy.Store(env))
+                fifo_index = fifo_index + 1
 
             self.fifo_r_in_pipe_matrix_A.append(fifo_r_in_pipe_arr)
             self.fifo_r_out_pipe_matrix_A.append(fifo_r_out_pipe_arr)
@@ -134,11 +139,13 @@ class Gearbox_I(HW_sim_object):
             fifo_w_in_pipe_arr = []
             fifo_w_out_pipe_arr = []
 
-            while (index < self.fifo_num_list[index]):
+            fifo_index = 0
+            while (fifo_index < self.fifo_num_list[index]):
                 fifo_r_in_pipe_arr.append(simpy.Store(env))
                 fifo_r_out_pipe_arr.append(simpy.Store(env))
                 fifo_w_in_pipe_arr.append(simpy.Store(env))
                 fifo_w_out_pipe_arr.append(simpy.Store(env))
+                fifo_index = fifo_index + 1
 
             self.fifo_r_in_pipe_matrix_B.append(fifo_r_in_pipe_arr)
             self.fifo_r_out_pipe_matrix_B.append(fifo_r_out_pipe_arr)
@@ -179,7 +186,9 @@ class Gearbox_I(HW_sim_object):
         self.level_ping_pong_arr = []
         index = 0
         while (index < self.level_num):
-            self.level_ping_pong_arr[index] = True
+            #self.level_ping_pong_arr[index] = True
+            self.level_ping_pong_arr.append(True)
+            index = index + 1
         
         # initiate vc
         self.virtrul_clock = initial_vc
@@ -194,19 +203,31 @@ class Gearbox_I(HW_sim_object):
     def enque_p(self):
         while True:
             pkt = yield self.gb_enq_pipe_cmd.get() 
-            pkt_finish_time = pkt.get_finish_time()
+            pkt_finish_time = pkt.get_finish_time(False)
             tuser = pkt.get_tuser()
             flow_id = tuser.pkt_id[0]
 
             # find the correct level to enque
             insert_level = self.find_insert_level(pkt_finish_time)
-
+            
             if insert_level == -1:
                 self.gb_enq_pipe_sts.put(0) # pkt overflow
-                print("enque pkt overflow, exceeds highest level")
+                print("[Gearbox] enque pkt overflow, exceeds highest level")
                 self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                 self.gb_enq_pipe_sts.put(False)
+            elif insert_level == self.level_num-1:
+                # For top level: only enque current Set A
+                current_fifo_index = self.levelsA[insert_level].cur_fifo
+                fifo_index_offset = self.find_enque_index_offset(insert_level, pkt_finish_time)
+                enque_index = current_fifo_index + fifo_index_offset
+                self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
+                (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
+                self.pkt_cnt = self.pkt_cnt + 1
+                self.gb_enq_pipe_sts.put(True) # enque successfully
+                print("[Gearbox] pkt {} enque level {}, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
             else:
+                #print("enque pkt within available levels")
+                
                 if insert_level > self.prev_enq_level_lst[flow_id]:
                     self.prev_enq_level_lst[flow_id] = insert_level # update prev_enq_level
                 else:
@@ -229,24 +250,29 @@ class Gearbox_I(HW_sim_object):
                     enque_index = current_fifo_index + fifo_index_offset
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
+                    print("[Gearbox] pkt {} enque level {} A, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == False) and enque_current_set)):
                     # Case 02: Enque current Set B
                     enque_index = current_fifo_index + fifo_index_offset
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
+                    print("[Gearbox] pkt {} enque level {} B, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == True) and not enque_current_set)):
                     # Case 02: Enque next Set B
                     enque_index =  fifo_index_offset - current_fifo_index
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
+                    print("[Gearbox] pkt {} enque level {} A, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
                 else:
                     # Case 02: Enque next Set A
                     enque_index =  fifo_index_offset - current_fifo_index
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-
+                    print("[Gearbox] pkt {} enque level {} B, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                
                 self.pkt_cnt = self.pkt_cnt + 1
-                self.gb_enq_pipe_sts.put(True) # enque successfully    
+                self.gb_enq_pipe_sts.put(True) # enque successfully
+                
     
     def deque_p(self):
         while True:
@@ -255,10 +281,14 @@ class Gearbox_I(HW_sim_object):
             (dequed_pkt, if_reload) = (0, False)
             deque_level_index = self.find_deque_level()
             while deque_level_index == -1:
-                print("Finished serving all levelsm move to next round")
+                if self.vc == 100:
+                    break
+                print("[Gearbox] Finished serving all levelsm move to next round")
+                self.print_debug_info() # 01262021 Peixuan debug
                 # TODO Run round until not return -1
                 self.run_round()
                 deque_level_index = self.find_deque_level()
+                print ("[Gearbox] deque_level_index = {}".format(deque_level_index))
             if self.level_ping_pong_arr[deque_level_index]:
                 # Serve set A in ping-pong fifos
                 dequed_fifo = self.levelsA[deque_level_index].cur_fifo
@@ -302,7 +332,14 @@ class Gearbox_I(HW_sim_object):
     
     def find_enque_index_offset(self, level_index, finish_time):
         # We need to find which fifo to enque at Gearbox level
-        fifo_index_offset = math.floor(finish_time / self.granularity_list[level_index]) - math.floor(self.vc / self.granularity_list[level_index])
+        fifo_index_offset = math.floor(float(finish_time) / self.granularity_list[level_index]) - math.floor(float(self.vc) / self.granularity_list[level_index])
+        '''# 01262021 Peixuan debug
+        print("level_index = {}, finish_time = {}, self.granularity_list[level_index]) = {}".format(level_index, finish_time, self.granularity_list[level_index]))
+        
+        print("math.floor(float(finish_time) / self.granularity_list[level_index]) = {}".format(math.floor(float(finish_time) / self.granularity_list[level_index])))
+        print("math.floor(float(self.vc) / self.granularity_list[level_index]) = {}".format(math.floor(float(self.vc) / self.granularity_list[level_index])))
+
+        print("[Gearbox] find_enque_index_offset: finish time = {}, fifo_index_offset = {}".format(finish_time, fifo_index_offset))'''
         if fifo_index_offset < 0:
             fifo_index_offset = 0 # if pkt's finish time has passed, enque the current fifo
         # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
@@ -330,27 +367,37 @@ class Gearbox_I(HW_sim_object):
         while (index < self.level_num):
                 if self.deque_bytes[index] > self.deque_served_bytes[index]:
                     return index
+                index = index + 1
         return -1 # If all level has been served, return -1
     
     def run_round(self):
         # We need to update self.level_ping_pong_arr if we finish serving one set
         updated_vc = self.vc + 1
         self.vc = updated_vc
+        print("[Gearbox] run round, current vc = {}".format(self.vc))
 
         # Update ping-pong
         index = 0
         while (index < self.level_num):
-            serve_set_A = (updated_vc % self.granularity_list[index] == 0)
+            serve_set_A = (math.floor(float(updated_vc) / (self.granularity_list[index] * self.fifo_num_list[index])) % 2 == 0)
+            '''# Peixuan debug 01262021
+            print("[Gearbox Debug] Level {} granularity = {}".format(index, self.granularity_list[index]))
+            print("[Gearbox Debug] (self.granularity_list[index] * self.fifo_num_list[index]) = {}".format((self.granularity_list[index] * self.fifo_num_list[index])))
+            print("[Gearbox Debug] math.floor(float(updated_vc) / (self.granularity_list[index] * self.fifo_num_list[index])) = {}".format(math.floor(float(updated_vc) / (self.granularity_list[index] * self.fifo_num_list[index]))))
+
+            print("[Gearbox Debug] At VC = {}, level {}, serve set A = {}".format(self.vc, index, serve_set_A))'''
             self.level_ping_pong_arr[index] = serve_set_A
+            index = index + 1
+        #print("Updated ping-pong list:")
 
         # for each level to find current serving fifos
         index = 0
-        while (index < self.level_num):
+        while (index < self.level_num - 1):     # The highest level don't have AB ping pong level
             # TODO: not sure how to handle ping-pong levels
-            is_new_fifo_A = self.levelsA[index].update_vc(self.vc)[1] # update_vc will return (vc, is_updated)
-            is_new_fifo_B = self.levelsB[index].update_vc(self.vc)[1]
+            (level_vc, is_new_fifo_A) = self.levelsA[index].update_vc(self.vc) # update_vc will return (vc, is_updated)
+            (level_vc, is_new_fifo_B) = self.levelsB[index].update_vc(self.vc)
 
-            is_new_fifo = False
+            '''is_new_fifo = False
 
             if (self.level_ping_pong_arr[index] == True):
                 cur_fifo = self.levelsA[index].get_cur_fifo()
@@ -361,11 +408,37 @@ class Gearbox_I(HW_sim_object):
 
             # TODO: Not sure
             if (is_new_fifo):
-                deque_byte = (self.granularity_list[0]/self.granularity_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
+                deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
                 self.deque_bytes[index] = deque_byte
                 #self.deque_served_bytes[index] = 0
                 #self.deque_flags[index] = True
             self.deque_served_bytes[index] = 0
+            index = index + 1'''
+
+            if (self.level_ping_pong_arr[index] == True):
+                cur_fifo = self.levelsA[index].get_cur_fifo()
+                cur_fifo_index = self.levelsA[index].cur_fifo
+            else:
+                cur_fifo = self.levelsB[index].get_cur_fifo()
+                cur_fifo_index = self.levelsB[index].cur_fifo
+            
+            if index == 0:
+                deque_byte = cur_fifo.get_bytes() # Level 0 serve the entire fifo
+            else:
+                deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
+            
+            #deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
+            self.deque_bytes[index] = deque_byte
+            print("[Gearbox] updated level {} serve bytes = {}".format(index, deque_byte))
+            self.deque_served_bytes[index] = 0
+
+            index = index + 1
+        
+        # update top level deque bytes
+        deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
+        self.deque_bytes[index] = deque_byte
+        print("[Gearbox] updated level {} serve bytes = {}".format(index, deque_byte))
+        self.deque_served_bytes[index] = 0
         
         # Update vc to outside
         self.vc_data_pipe.put(self.vc)
@@ -386,4 +459,28 @@ class Gearbox_I(HW_sim_object):
     
     def get_pkt_cnt(self):
         return self.pkt_cnt
+    
+    def print_debug_info(self):
+        print("Current VC = {}".format(self.vc))
+        print("Current Gearbox pkt_cnt = {}".format(self.pkt_cnt)) # Peixuan debug
+        index = 0
+        while(index < self.level_num - 1):
+            print("Level {}".format(index))
+            print("is serving set A: {}".format(self.level_ping_pong_arr[index]))
+            print("Level {} Set A, pkt_cnt: {}".format(index, self.levelsA[index].get_pkt_cnt()))
+            print("Level {} Set B, pkt_cnt: {}".format(index, self.levelsB[index].get_pkt_cnt()))
+
+            index = index + 1
+        print("Level {}".format(index))
+        print("Level {} Set A, pkt_cnt: {}".format(index, self.levelsA[index].get_pkt_cnt()))
+
+
+        # printing byte counts
+        #fifo_index = 0
+        #print("Level 0 A:")
+        #while(index < self.fifo_num_list[0]):
+        #    print("FIFO {} byte cnt: {}".format(fifo_index, self.levelsA[0].fifos[fifo_index].get_bytes()))
+
+
+        
     
