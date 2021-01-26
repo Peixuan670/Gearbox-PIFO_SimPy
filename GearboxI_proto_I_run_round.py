@@ -244,6 +244,9 @@ class Gearbox_I(HW_sim_object):
                 
                 enque_current_set = ((current_fifo_index + fifo_index_offset) < self.fifo_num_list[insert_level])
                 #enque_current_set = self.enque_current_set(insert_level, pkt_finish_time)
+                
+                # 01262021 Peixuan debug
+                print("[Gearbox Debug]: enque_current_set = {}, current_fifo_index = {}, fifo_index_offset = {} ".format(enque_current_set, current_fifo_index, fifo_index_offset))
 
                 if (((self.level_ping_pong_arr[insert_level] == True) and enque_current_set)):
                     # Case 01: Enque current Set A
@@ -259,13 +262,13 @@ class Gearbox_I(HW_sim_object):
                     print("[Gearbox] pkt {} enque level {} B, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == True) and not enque_current_set)):
                     # Case 02: Enque next Set B
-                    enque_index =  fifo_index_offset - current_fifo_index
+                    enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
                     print("[Gearbox] pkt {} enque level {} A, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
                 else:
                     # Case 02: Enque next Set A
-                    enque_index =  fifo_index_offset - current_fifo_index
+                    enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
                     print("[Gearbox] pkt {} enque level {} B, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
