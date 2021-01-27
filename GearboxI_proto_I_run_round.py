@@ -284,8 +284,6 @@ class Gearbox_I(HW_sim_object):
             (dequed_pkt, if_reload) = (0, False)
             deque_level_index = self.find_deque_level()
             while deque_level_index == -1:
-                if self.vc == 100:
-                    break
                 print("[Gearbox] Finished serving all levelsm move to next round")
                 self.print_debug_info() # 01262021 Peixuan debug
                 # TODO Run round until not return -1
@@ -295,11 +293,13 @@ class Gearbox_I(HW_sim_object):
             if self.level_ping_pong_arr[deque_level_index]:
                 # Serve set A in ping-pong fifos
                 dequed_fifo = self.levelsA[deque_level_index].cur_fifo
+                print ("[Gearbox Debug] dequeing level {} A, fifo {}".format(deque_level_index, dequed_fifo))
                 self.deq_pipe_req_arr_A[deque_level_index].put(dequed_fifo)
                 (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
             else:
                 # Serve set B in ping-pong fifos
                 dequed_fifo = self.levelsB[deque_level_index].cur_fifo
+                print ("[Gearbox Debug] dequeing level {} B, fifo {}".format(deque_level_index, dequed_fifo))
                 self.deq_pipe_req_arr_B[deque_level_index].put(dequed_fifo)
                 (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_B[deque_level_index].get()
 
@@ -368,9 +368,11 @@ class Gearbox_I(HW_sim_object):
     def find_deque_level(self):
         index = 0
         while (index < self.level_num):
-                if self.deque_bytes[index] > self.deque_served_bytes[index]:
+            if self.deque_bytes[index] > self.deque_served_bytes[index]:
+                is_fifo_empty = self.is_level_cur_fifo_empty(index) # skip if this fifo is already empty
+                if not is_fifo_empty:
                     return index
-                index = index + 1
+            index = index + 1
         return -1 # If all level has been served, return -1
     
     def run_round(self):
@@ -390,6 +392,7 @@ class Gearbox_I(HW_sim_object):
 
             print("[Gearbox Debug] At VC = {}, level {}, serve set A = {}".format(self.vc, index, serve_set_A))'''
             self.level_ping_pong_arr[index] = serve_set_A
+            print("[Gearbox] updated level {} is serve A = {}".format(index, serve_set_A))
             index = index + 1
         #print("Updated ping-pong list:")
 
@@ -438,11 +441,17 @@ class Gearbox_I(HW_sim_object):
             index = index + 1
         
         # update top level deque bytes
-        deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
+        
+        cur_fifo = self.levelsA[index].get_cur_fifo()
+        cur_fifo_index = self.levelsA[index].cur_fifo
+        deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO        
         self.deque_bytes[index] = deque_byte
         print("[Gearbox] updated level {} serve bytes = {}".format(index, deque_byte))
         self.deque_served_bytes[index] = 0
-        
+        # 01262021 Peixuan debug
+        # print("[Gearbox Debug] float(self.granularity_list[0])/self.granularity_list[index]) = {}".format(float(self.granularity_list[0])/self.granularity_list[index])))
+        # print("[Gearbox Debug] math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) = {}".format(math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]))
+
         # Update vc to outside
         self.vc_data_pipe.put(self.vc)
     
@@ -462,6 +471,20 @@ class Gearbox_I(HW_sim_object):
     
     def get_pkt_cnt(self):
         return self.pkt_cnt
+
+    def is_level_cur_fifo_empty(self, level_index):
+        if self.level_ping_pong_arr[level_index]:
+            # Serve set A in ping-pong fifos
+            cur_fifo_index = self.levelsA[level_index].cur_fifo
+            cur_fifo = self.levelsA[level_index].fifos[cur_fifo_index]
+        else:
+            # Serve set B in ping-pong fifos
+            cur_fifo_index = self.levelsB[level_index].cur_fifo
+            cur_fifo = self.levelsB[level_index].fifos[cur_fifo_index]
+        size = cur_fifo.get_bytes()
+        return size == 0
+        
+        
     
     def print_debug_info(self):
         print("Current VC = {}".format(self.vc))
