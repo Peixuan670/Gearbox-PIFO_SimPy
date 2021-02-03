@@ -66,7 +66,7 @@ class Pkt_mon(HW_sim_object):
                 i = 0
         # process results
         for j in range (self.num_flows):
-            #print ("Flow {} pkts: {}".format(j, pkt_lst[j]))
+            print ("Flow {} pkts: {}".format(j, pkt_lst[j]))
             if len(pkt_lst[j]) != self.num_pkts[j]:
                 print ("Received {} packets, expecting {len(pkt_lst[j])} packets".format(self.num_pkts[j]))
             for i in range(len(pkt_lst[j])):

@@ -22,16 +22,16 @@ class Top_tb(HW_sim_object):
         self.pkt_store_pipe = simpy.Store(env)
         self.pkt_mon_rdy = simpy.Store(env)
 
+        self.bit_rates = [1 * 10**9, 1 * 10**9, 1 * 10**9, 1 * 10**9]
         self.weights = [1, 1, 1, 1]
         self.quantum = 64 # bytes
-        self.num_test_pkts = [5, 5, 5, 5]
-        self.burst_size = [5, 5, 5, 5]
+        self.num_test_pkts = [50, 50, 50, 50]
 
         self.pkt_gen = list()
         for f in range(self.num_flows):
             self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, \
-                                   self.pkt_gen_pipes[f], f, self.weights[f], self.quantum, \
-                                   self.num_test_pkts[f], self.burst_size[f])
+                                   self.pkt_gen_pipes[f], f, self.bit_rates[f], self.weights[f], self.quantum, \
+                                   self.num_test_pkts[f])
         self.pkt_mux = Pkt_mux(env, line_clk_period, sys_clk_period, self.pkt_gen_pipes, self.pkt_mux_pipe)
         self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_mux_pipe, \
                                      self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe, self.drop_pipe)
@@ -61,7 +61,7 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=50000)
+    env.run(until=500000)
 
 if __name__ == "__main__":
     main()
