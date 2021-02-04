@@ -71,6 +71,7 @@ class Gearbox_level(HW_sim_object):
             print ('[Level] Check earliest fifo from index {}'.format(index))
             yield self.wait_sys_clks(self.fifo_check_latency)
             non_empty_fifo_index = self.check_non_empty_fifo(index)
+            print ('[Level] Found earliest fifo index = {}'.format(non_empty_fifo_index))
             self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
             '''cur_index = index            
             while True:
