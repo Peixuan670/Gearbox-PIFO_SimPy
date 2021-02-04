@@ -229,7 +229,10 @@ class Gearbox_I(HW_sim_object):
                 # For top level: only enque current Set A
                 current_fifo_index = self.levelsA[insert_level].cur_fifo
                 fifo_index_offset = self.find_enque_index_offset(insert_level, pkt_finish_time) # find enque fifo index offset (from cur_fifo)
-                enque_index = current_fifo_index + fifo_index_offset                            # find enque fifo index
+                if (current_fifo_index + fifo_index_offset) < self.fifo_num_list[insert_level]:
+                    enque_index = current_fifo_index + fifo_index_offset                                        # find enque fifo index
+                else:
+                    enque_index = current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]     # find enque fifo index
                 self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))                   # submit enque request
                 (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
                 self.pkt_cnt = self.pkt_cnt + 1
@@ -593,6 +596,10 @@ class Gearbox_I(HW_sim_object):
                 cur_fifo = self.levelsA[level].cur_fifo
                 self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
                 earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
+                if earlest_fifo_idex == -1:
+                    #wrap around
+                    self.find_earliest_fifo_pipe_req_arr_A[level].put(0)
+                    earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
                 print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {}, set A: {}, fifo: {}".format(level, is_serve_A, earlest_fifo_idex))
                 if not earlest_fifo_idex == -1:
                     #return (level, earlest_fifo_idex, True) #level index, fifo index, is current set
