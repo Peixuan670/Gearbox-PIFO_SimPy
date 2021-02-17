@@ -313,6 +313,7 @@ class Gearbox_I(HW_sim_object):
                 self.update_vc(updated_vc)
                 deque_level_index = self.find_deque_level()
                 print ("[Gearbox] deque_level_index = {}".format(deque_level_index))
+                
             if self.level_ping_pong_arr[deque_level_index]:
                 # Serve set A in ping-pong fifos
                 dequed_fifo = self.levelsA[deque_level_index].cur_fifo
@@ -469,188 +470,158 @@ class Gearbox_I(HW_sim_object):
 
             #(level_index, fifo_index, is_current_set) = self.find_earliest_non_empty_level_fifo()
             self.gb_jump_VC_req.put(1)
-            (level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
+            #(level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
+            (updated_vc, level_index, fifo_index, is_set_A) = yield self.gb_jump_VC_dat.get()
 
             while level_index == -1:
                 # all empty, not update vc
                 #(level_index, fifo_index, is_current_set) = self.find_earliest_non_empty_level_fifo()
                 print("[Gearbox Debug] <jump_vc_p>: All levels are empty")
                 self.gb_jump_VC_req.put(1)
-                (level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
-        
-            is_serve_A = self.level_ping_pong_arr[level_index]
-            if (is_serve_A):
-                cur_fifo = self.levelsA[level_index].cur_fifo
-            else:
-                cur_fifo = self.levelsB[level_index].cur_fifo
-        
-            if (is_current_set):
-                fifo_jump_offset = fifo_index - cur_fifo
-            else:
-                fifo_jump_offset = fifo_index + self.fifo_num_list[level_index] - cur_fifo
-        
-            updated_vc = (math.floor(self.vc / self.granularity_list[level_index]) + fifo_jump_offset) * self.granularity_list[level_index]
+                #(level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
+                (updated_vc, level_index, fifo_index, is_set_A) = yield self.gb_jump_VC_dat.get()
 
             #return updated_vc
             self.gb_update_VC_dat.put(updated_vc)
-    
-    '''def jump_vc(self):
-        # jump to next non-empty vc
-        #(level_index, fifo_index, is_current_set) = self.find_earliest_non_empty_level_fifo()
-        self.gb_jump_VC_req.put(1)
-        (level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
-
-        while level_index == -1:
-            # all empty, not update vc
-            #(level_index, fifo_index, is_current_set) = self.find_earliest_non_empty_level_fifo()
-            self.gb_jump_VC_req.put(1)
-            (level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
         
-        is_serve_A = self.level_ping_pong_arr[level_index]
-        if (is_serve_A):
-            cur_fifo = self.levelsA[level_index].cur_fifo
-        else:
-            cur_fifo = self.levelsB[level_index].cur_fifo
-        
-        if (is_current_set):
-            fifo_jump_offset = fifo_index - cur_fifo
-        else:
-            fifo_jump_offset = fifo_index + self.fifo_num_list[level_index] - cur_fifo
-        
-        updated_vc = (math.floor(self.vc / self.granularity_list[level_index]) + fifo_jump_offset) * self.granularity_list[level_index]
-
-        return updated_vc'''
 
     def find_earliest_non_empty_level_fifo_p(self):
         while True:
             yield self.gb_jump_VC_req.get()
-            break_flag = False
             level = 0
-            # levels lower than the top level
+            #updated_vc = float('inf')   # initialized as infinity
+            updated_vc = 999999999999   # initialized as infinity
+            has_non_empty_fifo = False  # if we found any non-empty fifo, set this flag as True
+
+            # debug usage
+            debug_level_index = -1
+            debug_fifo_index = -1
+            debug_is_setA = False
+
+            # get max vc of the earliest non-empty fifo in each level each set
             while (level < self.level_num - 1):
-                if break_flag:
-                    break
-                #find earliest non-empty level and fifo
-                is_serve_A = self.level_ping_pong_arr[level]
-                if (is_serve_A):
-                    #levels = self.levelsA
+                # set A:
+                cur_set = False
+                if(self.level_ping_pong_arr[level]):
+                    # if current serving level A in this level
                     cur_fifo = self.levelsA[level].cur_fifo
-                    self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-                    earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                    print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} A, is serve set A: {}, fifo: {}".format(level, is_serve_A, earlest_fifo_idex))
-                    if not earlest_fifo_idex == -1:
-                        #return (level, earlest_fifo_idex, True) #level index, fifo index, is current set
-                        print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Case 01: put earliest fifo index")
-                        self.gb_jump_VC_dat.put((level, earlest_fifo_idex, True)) #level index, fifo index, is current set
-                        #break
-                        break_flag = True
-                        break
-                
-                    # if current set is empty, scan next set
-                    cur_fifo = self.levelsB[level].cur_fifo
-                    self.find_earliest_fifo_pipe_req_arr_B[level].put(0)
-                    earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()
-                    print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} B, is serve set A: {}, fifo: {}".format(level, is_serve_A, earlest_fifo_idex))
-                    if not earlest_fifo_idex == -1:
-                        #return (level, earlest_fifo_idex, False) #level index, fifo index, is current set
-                        print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Case 02: put earliest fifo index")
-                        self.gb_jump_VC_dat.put((level, earlest_fifo_idex, False)) #level index, fifo index, is current set
-                        #break
-                        break_flag = True
-                        break
+                    cur_set = True
                 else:
-                    #levels = self.levelsB
+                    cur_fifo = 0
+                    cur_set = False
+                
+                self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
+                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
+                if not earlest_fifo_idex == -1:
+                    # found a non-empty fifo
+                    has_non_empty_fifo = True
+
+                    # cur_fifo_index in cur_set in this level
+                    jump_index_offset = 0
+                    level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
+                    if (cur_set):
+                        jump_index_offset = earlest_fifo_idex - level_cur_fifo
+                    else:
+                        jump_index_offset = earlest_fifo_idex + self.fifo_num_list[level] - level_cur_fifo
+
+                    #max_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+
+                    min_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+
+                    #if not (level == 0):
+                    #    # if not level 0, jump to the end of this fifo, that's max vc for this fifo
+                    #    max_vc = max_vc + self.granularity_list[level] - 1
+                        
+                    #if (max_vc < updated_vc):
+                    if (min_vc < updated_vc):
+                        #updated_vc = max_vc
+                        updated_vc = min_vc
+                        # debug usage
+                        debug_level_index = level
+                        debug_fifo_index = earlest_fifo_idex
+                        debug_is_setA = True
+                    
+
+                # set B:
+                cur_set = False
+                if not (self.level_ping_pong_arr[level]):
+                    # if current serving level B in this level
                     cur_fifo = self.levelsB[level].cur_fifo
-                    self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
-                    earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()
-                    print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} B, is serve set A: {}, fifo: {}".format(level, is_serve_A, earlest_fifo_idex))
-                    if not earlest_fifo_idex == -1:
-                        #return (level, earlest_fifo_idex, True) #level index, fifo index, is current set
-                        print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Case 03: put earliest fifo index")
-                        self.gb_jump_VC_dat.put((level, earlest_fifo_idex, True)) #level index, fifo index, is current set
-                        #break
-                        break_flag = True
-                        break  
+                    cur_set = True
+                else:
+                    cur_fifo = 0
+                    cur_set = False
+                
+                self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
+                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()
+                if not earlest_fifo_idex == -1:
+                    # found a non-empty fifo
+                    has_non_empty_fifo = True
 
-                    # if current set is empty, scan next set
-                    cur_fifo = self.levelsA[level].cur_fifo
-                    self.find_earliest_fifo_pipe_req_arr_A[level].put(0)
-                    earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                    print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} A, is serve set A: {}, fifo: {}".format(level, is_serve_A, earlest_fifo_idex))
-                    if not earlest_fifo_idex == -1:
-                        #return (level, earlest_fifo_idex, False) #level index, fifo index, is current set
-                        print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Case 04: put earliest fifo index")
-                        self.gb_jump_VC_dat.put((level, earlest_fifo_idex, False)) #level index, fifo index, is current set
-                        #break
-                        break_flag = True
-                        break
-                #cur_fifo = levels[level].cur_fifo
+                    # cur_fifo_index in cur_set in this level
+                    jump_index_offset = 0
+                    level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
+                    if (cur_set):
+                        jump_index_offset = earlest_fifo_idex - level_cur_fifo
+                    else:
+                        jump_index_offset = earlest_fifo_idex + self.fifo_num_list[level] - level_cur_fifo
+
+                    #max_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+                    min_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+
+                    #if not (level == 0):
+                    #    # if not level 0, jump to the end of this fifo, that's max vc for this fifo
+                    #    max_vc = max_vc + self.granularity_list[level] - 1
+                        
+                    #if (max_vc < updated_vc):
+                    #    updated_vc = max_vc
+                    if (min_vc < updated_vc):
+                        updated_vc = min_vc
+                        # debug usage
+                        debug_level_index = level
+                        debug_fifo_index = earlest_fifo_idex
+                        debug_is_setA = False
+                
                 level = level + 1
+                
+            # Top level only have set A
 
-            if break_flag:
-                continue
+            # set A:
+            cur_fifo = self.levelsA[level].cur_fifo
+            self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
+            earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
+            if not earlest_fifo_idex == -1:
+                # found a non-empty fifo
+                has_non_empty_fifo = True
+                jump_index_offset = 0
+                level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
+                jump_index_offset = earlest_fifo_idex - level_cur_fifo
+                
+            #max_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+            min_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+
+            #max_vc = max_vc + self.granularity_list[level] - 1
+                        
+            #if (max_vc < updated_vc):
+            #    updated_vc = max_vc
+            if (min_vc < updated_vc):
+                updated_vc = min_vc
+                # debug usage
+                debug_level_index = level
+                debug_fifo_index = earlest_fifo_idex
+                debug_is_setA = True
             
-            # top level
-            if not break_flag:
-                # not found any non-empty in the lower levels
-                cur_fifo = self.levelsA[level].cur_fifo
-                self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                if earlest_fifo_idex == -1:
-                    #wrap around
-                    self.find_earliest_fifo_pipe_req_arr_A[level].put(0)
-                    earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {}, set A: {}, fifo: {}".format(level, is_serve_A, earlest_fifo_idex))
-                if not earlest_fifo_idex == -1:
-                    #return (level, earlest_fifo_idex, True) #level index, fifo index, is current set
-                    print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Top level Case 01: put earliest fifo index")
-                    self.gb_jump_VC_dat.put((level, earlest_fifo_idex, True)) #level index, fifo index, is current set
-                    #break_flag = True
-                    continue
+            if (self.vc + 1) > updated_vc:
+                updated_vc = self.vc + 1
 
-            if not break_flag:
-                #return (-1, -1, False)
-                self.gb_jump_VC_dat.put((-1, -1, False)) #level index, fifo index, is current set
-    
-    
-    '''def find_earliest_non_empty_level_fifo(self):
-        level = 0
-        while (level < self.level_num):
-            #find earliest non-empty level and fifo
-            is_serve_A = self.level_ping_pong_arr[level]
-            if (is_serve_A):
-                #levels = self.levelsA
-                cur_fifo = self.levelsA[level].cur_fifo
-                self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                if not earlest_fifo_idex == -1:
-                    return (level, earlest_fifo_idex, True) #level index, fifo index, is current set
-                
-                # if current set is empty, scan next set
-                cur_fifo = self.levelsB[level].cur_fifo
-                self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()
-                if not earlest_fifo_idex == -1:
-                    return (level, earlest_fifo_idex, False) #level index, fifo index, is current set
-
+            if (has_non_empty_fifo):
+                self.gb_jump_VC_dat.put((updated_vc, debug_level_index, debug_fifo_index, debug_is_setA)) #updated_vc, level index, fifo index, is set A
+                print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} , is set A: {}, fifo: {}, updated vc = {}".format(debug_level_index, debug_is_setA, debug_fifo_index, updated_vc))
             else:
-                #levels = self.levelsB
-                cur_fifo = self.levelsB[level].cur_fifo
-                self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()
-                if not earlest_fifo_idex == -1:
-                    return (level, earlest_fifo_idex, True) #level index, fifo index, is current set
-                
-                # if current set is empty, scan next set
-                cur_fifo = self.levelsA[level].cur_fifo
-                self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                if not earlest_fifo_idex == -1:
-                    return (level, earlest_fifo_idex, False) #level index, fifo index, is current set
+                self.gb_jump_VC_dat.put((self.vc, -1, -1, debug_is_setA)) #updated_vc, level index, fifo index, is set A
+                print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Not Found non-empty fifo")
+    
 
-            #cur_fifo = levels[level].cur_fifo
-            level = level + 1
-        return (-1, -1, False)'''
     
     def find_insert_level(self, finish_time):
         # insert_level: the insert level of last packet in the flow
