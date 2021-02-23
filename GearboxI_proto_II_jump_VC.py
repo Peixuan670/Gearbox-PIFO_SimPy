@@ -15,6 +15,7 @@ class Gearbox_I(HW_sim_object):
         vc_data_pipe, drop_pipe, \
         granularity_list, fifo_num_list, fifo_size_list, \
         fifo_check_latency=1, initial_vc=0):
+        super(Gearbox_I, self).__init__(env, line_clk_period, sys_clk_period) # 02232021 Peixuan
 
         self.env = env
         
@@ -22,6 +23,10 @@ class Gearbox_I(HW_sim_object):
         self.fifo_num_list = fifo_num_list              # List: fifo num of each level
         self.fifo_size_list = fifo_size_list            # List: fifo size of each level
         self.fifo_check_latency = fifo_check_latency    # depreciated
+
+        self.enque_latency = 2                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
+        self.deque_01_latency = 2                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
+        self.deque_02_latency = 2                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
 
         # Gearbox enque/deque pipes
         self.gb_enq_pipe_cmd = gb_enq_pipe_cmd
@@ -215,6 +220,7 @@ class Gearbox_I(HW_sim_object):
             tuser = pkt.get_tuser()
             flow_id = tuser.pkt_id[0]
 
+            yield self.wait_sys_clks(self.enque_latency) # 02232021 Peixuan: enque delay
             # find the correct level to enque
             insert_level = self.find_insert_level(pkt_finish_time)
             
@@ -295,11 +301,14 @@ class Gearbox_I(HW_sim_object):
             yield self.gb_deq_pipe_req.get()
             print("[Gearbox Debug] Starting deque at VC = {}".format(self.vc))
 
+            yield self.wait_sys_clks(self.deque_01_latency) # 02232021 Peixuan: deque delay 01 (regular deque delay for every deque)
+
             (dequed_pkt, if_reload) = (0, False)
             deque_level_index = self.find_deque_level()
             while deque_level_index == -1:
                 # No bytes to serve in this round, move to the next one
                 print("[Gearbox] Finished serving all levelsm move to next round")
+                yield self.wait_sys_clks(self.deque_02_latency) # 02232021 Peixuan: deque delay 02 (extra deque delay to update VC)
                 #self.print_debug_info() # 01262021 Peixuan debug
                 self.print_level_pkt_cnt() # 02032021 Peixuan debug
                 # Run round until not return -1
