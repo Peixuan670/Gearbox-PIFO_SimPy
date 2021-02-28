@@ -69,23 +69,25 @@ class Gearbox_level(HW_sim_object):
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
             print ('[Level] Check earliest fifo from index {}'.format(index))
-            yield self.wait_sys_clks(self.fifo_check_latency)
-            cur_index = index            
-            while True:
-                if not self.fifos[cur_index].get_len() == 0:
-                    self.find_earliest_fifo_pipe_dat.put(cur_index)
-                    print ('[Level] Found earliest fifo{}'.format(cur_index))
-                    break
-                cur_index = cur_index + 1
-                if (cur_index == self.fifo_num):
-                    # recirculate if go to the back of the level
-                    cur_index = 0
-                if (cur_index == index):
-                    self.find_earliest_fifo_pipe_dat.put(-1) # this means all the fifos are empty
-                    print ('[Level] All fifos are empty')
-                    break
+            #yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
+            non_empty_fifo_index = self.check_non_empty_fifo(index)
+            print ('[Level] Found earliest fifo index = {}'.format(non_empty_fifo_index))
+            self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
 
+    
+    def check_non_empty_fifo(self, index):
+        cur_index = index
+        while cur_index < self.fifo_num:
+            if not self.fifos[cur_index].get_len() == 0:
+                self.find_earliest_fifo_pipe_dat.put(cur_index)
+                print ('[Level] Found earliest fifo{}'.format(cur_index))
+                return cur_index
+            cur_index = cur_index + 1
+        print ('[Level] All fifos are empty')
+        return -1
 
+    
+    
     def enqueue_p(self):
         # enqueue process
         # enque includes queue index to enque
