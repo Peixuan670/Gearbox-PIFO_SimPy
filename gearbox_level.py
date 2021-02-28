@@ -87,7 +87,7 @@ class Gearbox_level(HW_sim_object):
 
 
     def enqueue_p(self):
-        # enque process
+        # enqueue process
         # enque includes queue index to enque
         while True:
             (pkt, enque_fifo_index) = yield self.enq_pipe_cmd.get() 
@@ -101,7 +101,7 @@ class Gearbox_level(HW_sim_object):
                 print("[Level] Illegal packet")
 
     def dequeue_p(self):
-        # deque process
+        # dequeue process
         # deque request includes queue index to deque
         while True:
             index = yield self.deq_pipe_req.get()
