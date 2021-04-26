@@ -2,21 +2,21 @@ import math
 from hwsim_utils import *
 from packet import Packet_descriptior
 from queues import FIFO, PIFO
-from gearbox_level import GearboxII_level
+from gearboxII_level import GearboxII_level
 from base_level_II import Base_level
 
 # Peixuan 01142020
 # This is Gearbox II
 # Prototype I: multi_level, has ping pong, no step down
 # NOTICE: This prototype is for functional test: each round round only plus 1
-class Gearbox_I(HW_sim_object):
+class Gearbox_II(HW_sim_object):
     # Public
     def __init__(self, env, line_clk_period, sys_clk_period, \
         gb_enq_pipe_cmd, gb_enq_pipe_sts, gb_deq_pipe_req, gb_deq_pipe_dat, \
         vc_data_pipe, drop_pipe, \
         granularity_list, fifo_num_list, fifo_size_list, pifo_size_list, pifo_thresh_list,\
         fifo_check_latency=1, initial_vc=0):
-        super(Gearbox_I, self).__init__(env, line_clk_period, sys_clk_period) # 02232021 Peixuan
+        super(Gearbox_II, self).__init__(env, line_clk_period, sys_clk_period) # 02232021 Peixuan
 
         self.env = env
         
@@ -153,11 +153,10 @@ class Gearbox_I(HW_sim_object):
 
 
         self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity_list[0], fifo_size_list[0], \
-                      self.enq_pipe_cmd_arr_A[0], self.enq_pipe_sts_arr_A[0], self.deq_pipe_req_arr_A[0], self.deq_pipe_dat_arr_A[0], \
+                      self.enq_pipe_cmd_arr_A[0], self.enq_pipe_sts_arr_A[0], self.deq_pipe_req_arr_A[0], self.deq_pipe_dat_arr_A[0], self.drop_pipe, \
                       self.find_earliest_fifo_pipe_req_arr_A[0], self.find_earliest_fifo_pipe_dat_arr_A[0], \
                       self.fifo_r_in_pipe_matrix_A[0], self.fifo_r_out_pipe_matrix_A[0], self.fifo_w_in_pipe_matrix_A[0], self.fifo_w_out_pipe_matrix_A[0], \
-                      fifo_write_latency=1, fifo_read_latency=1, \
-                      fifo_check_latency=1, fifo_num=10, initial_vc=0)
+                      fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0)
         
         
         # initiate levels for set A
@@ -216,6 +215,7 @@ class Gearbox_I(HW_sim_object):
                 self.pifo_size_list[index], self.pifo_thresh_list[index], \
                 self.enq_pipe_cmd_arr_A[index], self.enq_pipe_sts_arr_A[index], self.deq_pipe_req_arr_A[index], self.deq_pipe_dat_arr_A[index], \
                 self.rld_pipe_cmd_arr_A[index], self.rld_pipe_sts_arr_A[index], self.mig_pipe_req_arr_A[index], self.mig_pipe_dat_arr_A[index], \
+                self.gb_enq_pipe_cmd, self.gb_enq_pipe_sts, \
                 self.find_earliest_fifo_pipe_req_arr_A[index], self.find_earliest_fifo_pipe_dat_arr_A[index], \
                 self.fifo_r_in_pipe_matrix_A[index], self.fifo_r_out_pipe_matrix_A[index], \
                 self.fifo_w_in_pipe_matrix_A[index], self.fifo_w_out_pipe_matrix_A[index], \
@@ -223,6 +223,7 @@ class Gearbox_I(HW_sim_object):
                 self.pifo_w_in_pipe_arr_A[index], self.pifo_w_out_pipe_arr_A[index], \
                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10,\
                 pifo_write_latency=1, pifo_read_latency=1, pifo_shift_latency=1, initial_vc=0)
+            
 
             self.levelsA.append(cur_level)
             
@@ -299,7 +300,7 @@ class Gearbox_I(HW_sim_object):
         self.env.process(self.enque_p())
         self.env.process(self.deque_p())
         self.env.process(self.find_earliest_non_empty_level_fifo_p())
-        self.env.process(self.jump_vc_p())
+        #self.env.process(self.jump_vc_p())
     
     def enque_p(self):
         # enque process

@@ -14,10 +14,9 @@ class GearboxII_level(HW_sim_object):
                  find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
                  fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, \
                  pifo_r_in_pipe, pifo_r_out_pipe, pifo_w_in_pipe, pifo_w_out_pipe, \
-                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, \ 
-                 pifo_write_latency=1, pifo_read_latency=1, pifo_shift_latency=1, initial_vc=0):
+                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, pifo_write_latency=1, pifo_read_latency=1, pifo_shift_latency=1, initial_vc=0):
                  
-        super(Gearbox_level, self).__init__(env, line_clk_period, sys_clk_period)
+        super(GearboxII_level, self).__init__(env, line_clk_period, sys_clk_period)
         self.granularity = granularity      # Level Grabularuty, units of VC
         self.fifo_num = fifo_num            # Level fifo num
         self.fifo_size = fifo_size          # Level fifo size, all the fifos in a level has the same size
@@ -49,15 +48,15 @@ class GearboxII_level(HW_sim_object):
 
         # Initialize PIFO array and read/write pipe
         
-        self.pifo_r_in_pipe_arr = pifo_r_in_pipe_arr
-        self.pifo_r_out_pipe_arr = pifo_r_out_pipe_arr
-        self.pifo_w_in_pipe_arr = pifo_w_in_pipe_arr
-        self.pifo_w_out_pipe_arr = pifo_w_out_pipe_arr
+        self.pifo_r_in_pipe = pifo_r_in_pipe
+        self.pifo_r_out_pipe = pifo_r_out_pipe
+        self.pifo_w_in_pipe = pifo_w_in_pipe
+        self.pifo_w_out_pipe = pifo_w_out_pipe
 
         self.pifo = PIFO(env, line_clk_period, sys_clk_period, \
-                         self.pifo_r_in_pipe_arr, self.pifo_r_out_pipe_arr, \
-                         self.pifo_w_in_pipe_arr, self.pifo_w_out_pipe_arr, \
-                         self.pifo_size, self.pifo_write_latency, self.pifo_read_latency, self.pifo_shift_latency, init_items=[]):
+                         self.pifo_r_in_pipe, self.pifo_r_out_pipe, \
+                         self.pifo_w_in_pipe, self.pifo_w_out_pipe, \
+                         self.pifo_size, self.pifo_write_latency, self.pifo_read_latency, self.pifo_shift_latency, init_items=[])
 
         # Initialize VC
 
@@ -94,20 +93,12 @@ class GearboxII_level(HW_sim_object):
 
     # Public
 
-    def deque_fifo(self, fifo_index):
-        # TODO: Peixuan 0409
-    
-    ##def enque_pifo(self, pkt):
-    ##    # TODO: Peixuan 0409
-
-    ##def deque_pifo(self, fifo_index):
-    ##    # TODO: Peixuan 0409
+    #def deque_fifo(self, fifo_index):
+    #    # TODO: Peixuan 0409
     
     def peek_pifo(self):
-        # TODO: check pifo size?
-        return self.pifo.peek_front()
-        # TODO: Peixuan 0409
-
+        top_pkt = self.pifo.peek_front()
+        return top_pkt
 
     
     def find_earliest_non_empty_fifo_p(self):   # depreciated        

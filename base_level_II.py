@@ -11,7 +11,6 @@ class Base_level(HW_sim_object):
                  enq_pipe_cmd, enq_pipe_sts, deq_pipe_req, deq_pipe_dat, drop_pipe,\
                  find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
                  fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, \
-                 vc_upd_pipe, \
                  fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0):
                  
         super(Base_level, self).__init__(env, line_clk_period, sys_clk_period)
@@ -52,7 +51,7 @@ class Base_level(HW_sim_object):
         self.fifo_w_in_pipe_arr = fifo_w_in_pipe_arr
         self.fifo_w_out_pipe_arr = fifo_w_out_pipe_arr
 
-        self.vc_upd_pipe = vc_upd_pipe
+        #self.vc_upd_pipe = vc_upd_pipe
         
         index = 0
         while (index < self.fifo_num):
@@ -75,7 +74,7 @@ class Base_level(HW_sim_object):
         self.env.process(self.enqueue_p())
         self.env.process(self.dequeue_p())
         self.env.process(self.find_earliest_non_empty_fifo_p())
-        self.env.process(self.top_tb()) # blevel vc update
+        #self.env.process(self.top_tb()) # blevel vc update
 
     # Public
     
@@ -194,11 +193,11 @@ class Base_level(HW_sim_object):
     def get_pkt_cnt(self):
         return self.pkt_cnt
     
-    def top_tb(self):
+    '''def top_tb(self):
         while True:
             updated_vc = yield self.vc_upd_pipe.get()
             self.vc = updated_vc
-            print("updated blevel vc = {}".format(self.vc)) # Peixuan debug
+            print("updated blevel vc = {}".format(self.vc)) # Peixuan debug'''
     
     def peek_earliest_pkt(self):
         # TODO: return earliest pkt in the base level
