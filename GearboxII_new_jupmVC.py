@@ -87,6 +87,9 @@ class Gearbox_II(HW_sim_object):
         self.mig_pipe_req_arr_A = [] 
         self.mig_pipe_dat_arr_A = []
 
+        self.mig_enq_pipe_cmd_arr_A = [] 
+        self.mig_enq_pipe_sts_arr_A = []
+
         # set B
         #self.enq_pipe_cmd_arr_B = [] 
         #self.enq_pipe_sts_arr_B = []
@@ -130,6 +133,8 @@ class Gearbox_II(HW_sim_object):
         enq_pipe_sts = simpy.Store(env)
         deq_pipe_req = simpy.Store(env)
         deq_pipe_dat = simpy.Store(env)
+        mig_enq_pipe_cmd = simpy.Store(env)
+        mig_enq_pipe_sts = simpy.Store(env)
         find_earliest_fifo_pipe_req = simpy.Store(env)
         find_earliest_fifo_pipe_dat = simpy.Store(env)
 
@@ -137,6 +142,8 @@ class Gearbox_II(HW_sim_object):
         self.enq_pipe_sts_arr_A.append(enq_pipe_sts)
         self.deq_pipe_req_arr_A.append(deq_pipe_req)
         self.deq_pipe_dat_arr_A.append(deq_pipe_dat)
+        self.mig_enq_pipe_cmd_arr_A.append(mig_enq_pipe_cmd)
+        self.mig_enq_pipe_sts_arr_A.append(mig_enq_pipe_sts)
         self.find_earliest_fifo_pipe_req_arr_A.append(find_earliest_fifo_pipe_req)
         self.find_earliest_fifo_pipe_dat_arr_A.append(find_earliest_fifo_pipe_dat)
 
@@ -153,7 +160,8 @@ class Gearbox_II(HW_sim_object):
 
 
         self.blevel = Base_level(env, line_clk_period, sys_clk_period, granularity_list[0], fifo_size_list[0], \
-                      self.enq_pipe_cmd_arr_A[0], self.enq_pipe_sts_arr_A[0], self.deq_pipe_req_arr_A[0], self.deq_pipe_dat_arr_A[0], self.drop_pipe, \
+                      self.enq_pipe_cmd_arr_A[0], self.enq_pipe_sts_arr_A[0], self.deq_pipe_req_arr_A[0], self.deq_pipe_dat_arr_A[0],\
+                      self.mig_enq_pipe_cmd_arr_A[0], self.mig_enq_pipe_sts_arr_A[0], self.drop_pipe, \
                       self.find_earliest_fifo_pipe_req_arr_A[0], self.find_earliest_fifo_pipe_dat_arr_A[0], \
                       self.fifo_r_in_pipe_matrix_A[0], self.fifo_r_out_pipe_matrix_A[0], self.fifo_w_in_pipe_matrix_A[0], self.fifo_w_out_pipe_matrix_A[0], \
                       fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0)
@@ -198,6 +206,8 @@ class Gearbox_II(HW_sim_object):
             rld_pipe_sts = simpy.Store(env)
             mig_pipe_req = simpy.Store(env)
             mig_pipe_dat = simpy.Store(env)
+            mig_enq_pipe_cmd = simpy.Store(env)
+            mig_enq_pipe_sts = simpy.Store(env)
 
             self.enq_pipe_cmd_arr_A.append(enq_pipe_cmd)
             self.enq_pipe_sts_arr_A.append(enq_pipe_sts)
@@ -210,12 +220,14 @@ class Gearbox_II(HW_sim_object):
             self.rld_pipe_sts_arr_A.append(rld_pipe_sts)
             self.mig_pipe_req_arr_A.append(mig_pipe_req)
             self.mig_pipe_dat_arr_A.append(mig_pipe_dat)
+            self.mig_enq_pipe_cmd_arr_A.append(mig_enq_pipe_cmd)
+            self.mig_enq_pipe_sts_arr_A.append(mig_enq_pipe_sts)
 
             cur_level = GearboxII_level(env, line_clk_period, sys_clk_period, self.granularity_list[index], self.fifo_size_list[index], \
                 self.pifo_size_list[index], self.pifo_thresh_list[index], \
                 self.enq_pipe_cmd_arr_A[index], self.enq_pipe_sts_arr_A[index], self.deq_pipe_req_arr_A[index], self.deq_pipe_dat_arr_A[index], \
-                self.rld_pipe_cmd_arr_A[index], self.rld_pipe_sts_arr_A[index], self.mig_pipe_req_arr_A[index], self.mig_pipe_dat_arr_A[index], \
-                self.gb_enq_pipe_cmd, self.gb_enq_pipe_sts, \
+                self.rld_pipe_cmd_arr_A[index], self.rld_pipe_sts_arr_A[index], self.mig_pipe_req_arr_A[index], self.mig_pipe_dat_arr_A[index], self.mig_enq_pipe_cmd_arr_A[index], self.mig_enq_pipe_sts_arr_A[index],\
+                self.enq_pipe_cmd_arr_A[index-1], self.enq_pipe_sts_arr_A[index-1], \
                 self.find_earliest_fifo_pipe_req_arr_A[index], self.find_earliest_fifo_pipe_dat_arr_A[index], \
                 self.fifo_r_in_pipe_matrix_A[index], self.fifo_r_out_pipe_matrix_A[index], \
                 self.fifo_w_in_pipe_matrix_A[index], self.fifo_w_out_pipe_matrix_A[index], \
