@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
+import os
 import simpy
 from hwsim_utils import *
-from pkt_gen import *
-from pkt_mux import *
-from packet_storage import *
+#from pkt_gen import *
+from desc_gen import *
+#from pkt_mux import *
+#from packet_storage import *
 #from pkt_sched_blevel import *
 from pkt_sched_gearbox import *
 from pkt_mon import *
@@ -12,33 +14,38 @@ from pkt_mon import *
 class Top_tb(HW_sim_object):
     def __init__(self, env, line_clk_period, sys_clk_period):
         super(Top_tb, self).__init__(env, line_clk_period, sys_clk_period)
-        self.num_flows = 4
-        self.ptr_in_pipe = simpy.Store(env)
-        self.ptr_out_pipe = simpy.Store(env)
+#        self.num_flows = 4
+#        self.ptr_in_pipe = simpy.Store(env)
+        self.pcap_desc_pipe = simpy.Store(env)
         self.drop_pipe = simpy.Store(env)
         self.sched_vc_pipe = simpy.Store(env) # 12312020 Peixuan test
-        self.pkt_gen_pipes = [simpy.Store(env)] * self.num_flows
-        self.pkt_mux_pipe = simpy.Store(env)
-        self.pkt_store_pipe = simpy.Store(env)
+#        self.pkt_gen_pipes = [simpy.Store(env)] * self.num_flows
+#        self.pkt_mux_pipe = simpy.Store(env)
+        self.sched_desc_pipe = simpy.Store(env)
+        self.mon_info_pipe = simpy.Store(env)
         self.pkt_mon_rdy = simpy.Store(env)
 
-        self.bit_rates = [1 * 10**9, 1 * 10**9, 1 * 10**9, 1 * 10**9]
-        self.weights = [1, 1, 1, 1]
-        self.quantum = 64 # bytes
-        self.num_test_pkts = [50, 50, 50, 50]
+        pcap_file_name = "test.pcap"
+        base_file_name = os.path.splitext(pcap_file_name)[0]
 
-        self.pkt_gen = list()
-        for f in range(self.num_flows):
-            self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, \
-                                   self.pkt_gen_pipes[f], f, self.bit_rates[f], self.weights[f], self.quantum, \
-                                   self.num_test_pkts[f])
-        self.pkt_mux = Pkt_mux(env, line_clk_period, sys_clk_period, self.pkt_gen_pipes, self.pkt_mux_pipe)
-        self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_mux_pipe, \
-                                     self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe, self.drop_pipe)
-        self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.ptr_in_pipe, \
-                                  self.ptr_out_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe)
-        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.pkt_store_pipe, \
-                               self.num_flows, self.num_test_pkts, self.pkt_mon_rdy)
+#        self.bit_rates = [1 * 10**9, 1 * 10**9, 1 * 10**9, 1 * 10**9]
+#        self.weights = [1, 1, 1, 1]
+#        self.quantum = 64 # bytes
+#        self.num_test_pkts = [50, 50, 50, 50]
+
+#        self.pkt_gen = list()
+#        for f in range(self.num_flows):
+#            self.pkt_gen = Pkt_gen(env, line_clk_period, sys_clk_period, \
+#                                   self.pkt_gen_pipes[f], f, self.bit_rates[f], self.weights[f], self.quantum, \
+#                                   self.num_test_pkts[f])
+#        self.pkt_mux = Pkt_mux(env, line_clk_period, sys_clk_period, self.pkt_gen_pipes, self.pkt_mux_pipe)
+#        self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_mux_pipe, \
+#                                     self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe, self.drop_pipe)
+        self.desc_gen = Desc_gen(env, line_clk_period, sys_clk_period, base_file_name, self.pcap_desc_pipe, self.mon_info_pipe)
+        self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
+                                  self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe)
+        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
+                               self.mon_info_pipe, self.pkt_mon_rdy)
         
         self.vc = 0
         

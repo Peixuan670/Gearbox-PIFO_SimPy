@@ -190,7 +190,7 @@ class Gearbox_I(HW_sim_object):
         
         
         # Tracking last pkt enque level
-        self.prev_enq_level_lst = [0] * 4    # We have 4 flows (flow id) in the simulation
+        self.prev_enq_level_lst = [0] * 1024    # We have 4 flows (flow id) in the simulation
         
         # initiate ping-pong indicator (level_ping_pong_arr[index] = is level[index] serving set A?)
         self.level_ping_pong_arr = []

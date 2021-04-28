@@ -6,29 +6,31 @@ from packet_storage import *
 from scapy.all import *
 
 class Pkt_mon(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, pkt_out_pipe, num_flows, num_pkts, pkt_mon_rdy):
+    def __init__(self, env, line_clk_period, sys_clk_period, pkt_out_pipe, mon_info_pipe, pkt_mon_rdy):
         super(Pkt_mon, self).__init__(env, line_clk_period, sys_clk_period)
         self.pkt_out_pipe = pkt_out_pipe
-        self.num_flows = num_flows
-        self.num_pkts = num_pkts
+        self.mon_info_pipe = mon_info_pipe
         self.pkt_mon_rdy = pkt_mon_rdy
-        
+        self.num_flows = 0
+        self.num_pkts = []
         self.pkt_mon_lst = [(0, None)] * 2
         self.run()
 
     def run(self):
         self.env.process(self.pkt_mon_queue())
-        self.env.process(self.pkt_mon_sm())
+        #self.env.process(self.pkt_mon_sm())
 
     def pkt_mon_queue(self):
         i = 0
+        (self.num_flows, self.num_pkts) = yield self.mon_info_pipe.get()
+        print('pkt mon info: num_flows = {}, num_pkts = {}'.format(self.num_flows, self.num_pkts))
         while True:
             # signal pkt mon ready to scheduler
             self.pkt_mon_rdy.put(1)
             # wait to receive output pkt and metadata
-            (pkt_out, tuser_out) = yield self.pkt_out_pipe.get()
+            (head_seg_ptr, meta_ptr, tuser_out) = yield self.pkt_out_pipe.get()
             # store packet and metadata in list
-            self.pkt_mon_lst[i] = (1, (pkt_out, tuser_out))
+            self.pkt_mon_lst[i] = (1, (meta_ptr, tuser_out))
             # flip index
             if i == 0:
                 i = 1
@@ -38,8 +40,9 @@ class Pkt_mon(HW_sim_object):
             while (self.pkt_mon_lst[0][0] == 1 and self.pkt_mon_lst[1][0] == 1):
                 yield self.wait_sys_clks(1)
                 
-    def pkt_mon_sm(self):
+    #def pkt_mon_sm(self):
         i = 0
+        print('pkt_mon - num_flows = {}'.format(self.num_flows))
         pkt_lst = [[] for j in range(self.num_flows)]
         rank_lst = []
         for j in range(sum(self.num_pkts)):
@@ -49,7 +52,7 @@ class Pkt_mon(HW_sim_object):
             # get packet from queue
             (pkt_out, tuser_out) = self.pkt_mon_lst[i][1]
             self.pkt_mon_lst[i] = (0, (0, 0))
-            print ('@ {:.2f} - Receive: {} || {}'.format(self.env.now, pkt_out.summary(), tuser_out))
+            #print ('@ {:.2f} - Receive: {} || {}'.format(self.env.now, tuser_out))
             # collect per flow info
             rank = tuser_out.rank
             flow_id = tuser_out.pkt_id[0]

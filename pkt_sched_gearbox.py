@@ -2,7 +2,7 @@
 
 import simpy
 from hwsim_utils import *
-from GearboxI_proto_I_run_round import Gearbox_I
+from GearboxI_proto_II_jump_VC import Gearbox_I
 from packet import Packet_descriptior
 from queues import *
 
@@ -52,20 +52,26 @@ class Pkt_sched(HW_sim_object):
         self.env.process(self.vc_update_p())
 
     def sched_enq(self):
-        prev_fin_time_lst = [0] * 4
+        prev_fin_time_lst = [0] * 1024
+        tuser = Tuser(0, 0, (0, 0))
         while True:
-            (head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
+            #(head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
+            desc_in = yield self.ptr_out_pipe.get()
             #self.ptr_list.append((head_seg_ptr, meta_ptr, tuser))
-            print ('@ {:.2f} - Enqueue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.\
-                   format(self.env.now, head_seg_ptr, meta_ptr, tuser))
-            flow_id = tuser.pkt_id[0]
-            fin_time = max(prev_fin_time_lst[flow_id], self.vc) + tuser.rank
+            print ('@ {:.2f} - Enqueue: tuser = {}'.format(self.env.now, desc_in))
+            pkt_len = desc_in[0]
+            rank = desc_in[1]
+            flow_id = desc_in[2]
+            pkt_id = desc_in[3]
+            fin_time = max(prev_fin_time_lst[flow_id], self.vc) + rank
             #if self.blevel.fifo_num > (fin_time - self.vc):
             #    prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
-            tuser_out = Tuser(tuser.pkt_len, fin_time, tuser.pkt_id)
-            print ('@ {:.2f} - Enqueue: tuser_out = {}'.\
-                   format(self.env.now, tuser_out))
-            pkt_des = Packet_descriptior(head_seg_ptr, meta_ptr, tuser_out)
+            #desc_out = (pkt_len, fin_time, flow_id, pkt_id)
+            tuser.pkt_len = pkt_len
+            tuser.rank = fin_time
+            tuser.pkt_id = (flow_id, pkt_id)
+            print ('@ {:.2f} - Enqueue: desc_out = {}'.format(self.env.now, tuser))
+            pkt_des = Packet_descriptior(0, 0, tuser)
             print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
             self.gb_enq_pipe_cmd.put(pkt_des)
 
