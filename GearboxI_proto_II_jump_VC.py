@@ -508,6 +508,7 @@ class Gearbox_I(HW_sim_object):
             debug_level_index = -1
             debug_fifo_index = -1
             debug_is_setA = False
+            self.print_level_pkt_cnt()	# peixuan debug
 
             # get max vc of the earliest non-empty fifo in each level each set
             while (level < self.level_num - 1):
