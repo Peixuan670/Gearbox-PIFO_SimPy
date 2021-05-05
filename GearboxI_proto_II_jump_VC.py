@@ -134,6 +134,7 @@ class Gearbox_I(HW_sim_object):
                 self.find_earliest_fifo_pipe_req_arr_A[index], self.find_earliest_fifo_pipe_dat_arr_A[index], \
                 self.fifo_r_in_pipe_matrix_A[index], self.fifo_r_out_pipe_matrix_A[index], \
                 self.fifo_w_in_pipe_matrix_A[index], self.fifo_w_out_pipe_matrix_A[index], \
+                index, \
                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
             self.levelsA.append(cur_level)
@@ -182,6 +183,7 @@ class Gearbox_I(HW_sim_object):
                 self.find_earliest_fifo_pipe_req_arr_B[index], self.find_earliest_fifo_pipe_dat_arr_B[index], \
                 self.fifo_r_in_pipe_matrix_B[index], self.fifo_r_out_pipe_matrix_B[index], \
                 self.fifo_w_in_pipe_matrix_B[index], self.fifo_w_out_pipe_matrix_B[index], \
+                index, \
                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
             self.levelsB.append(cur_level)
