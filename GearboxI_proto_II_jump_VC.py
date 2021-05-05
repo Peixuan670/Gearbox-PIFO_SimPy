@@ -499,6 +499,8 @@ class Gearbox_I(HW_sim_object):
     def find_earliest_non_empty_level_fifo_p(self):
         while True:
             yield self.gb_jump_VC_req.get()
+            print("[Jump VC process debug] @ VC = {}, get jump vc req".format(self.vc))
+            print("[Peixuan debug] now level 1 A fifo 9 length = {}".format(self.levelsA[1].fifos[9].get_len()))
             level = 0
             #updated_vc = float('inf')   # initialized as infinity
             updated_vc = 999999999999   # initialized as infinity
@@ -522,11 +524,26 @@ class Gearbox_I(HW_sim_object):
                     cur_fifo = 0
                     cur_set = False
                 
+                '''# Peixuan debug: here is the problem in jump vc
+                earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
+                print("[vc_pipe_debug] @ VC = {}, now level 1 A fifo 9 length = {}".format(self.vc, self.levelsA[1].fifos[9].get_len()))                
                 self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
                 earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
+                print("[vc_pipe_debug] @ VC = {} we are getting find_earliest_fifo_pipe_dat_arr_A level {} non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))'''
+                
+                
+                # Peixuan debug: we change process to regular function
+                earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
+                print("[vc_function] @ VC = {}, now level 1 A fifo 9 length = {}".format(self.vc, self.levelsA[1].fifos[9].get_len()))                
+                earlest_fifo_idex = self.levelsA[level].find_earliest_non_empty_fifo(cur_fifo)
+                print("[vc_funxtion] @ VC = {} we are getting level {} A non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
+                
+                
                 if not earlest_fifo_idex == -1:
                     # found a non-empty fifo
                     has_non_empty_fifo = True
+                    print("[jump vc debug] level {} A is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
+                    print("[jump vc debug] level {} A pkt_cnt = {}, fifo {} len = {}".format(level, self.levelsA[level].pkt_cnt, earlest_fifo_idex, self.levelsA[level].fifos[earlest_fifo_idex].get_len()))  # Peixuan debug 05042021
 
                     # cur_fifo_index in cur_set in this level
                     jump_index_offset = 0
@@ -564,11 +581,18 @@ class Gearbox_I(HW_sim_object):
                     cur_fifo = 0
                     cur_set = False
                 
-                self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()
+                '''self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
+                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()'''
+
+                # Peixuan debug: we change process to regular function
+                earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
+                earlest_fifo_idex = self.levelsB[level].find_earliest_non_empty_fifo(cur_fifo)
+                print("[vc_funxtion] @ VC = {} we are getting level {} B non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
+
                 if not earlest_fifo_idex == -1:
                     # found a non-empty fifo
                     has_non_empty_fifo = True
+                    print("[jump vc debug] level {} B is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
 
                     # cur_fifo_index in cur_set in this level
                     jump_index_offset = 0
@@ -600,11 +624,22 @@ class Gearbox_I(HW_sim_object):
 
             # set A:
             cur_fifo = self.levelsA[level].cur_fifo
-            self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-            earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
+
+            '''self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
+            earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()'''
+
+            # Peixuan debug: we change process to regular function
+            earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
+            earlest_fifo_idex = self.levelsA[level].find_earliest_non_empty_fifo(cur_fifo)
+            print("[vc_funxtion] @ VC = {} we are getting level {} A non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
+
+
             if not earlest_fifo_idex == -1:
                 # found a non-empty fifo
                 has_non_empty_fifo = True
+
+                print("[jump vc debug] level {} A is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
+
                 jump_index_offset = 0
                 level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
                 jump_index_offset = earlest_fifo_idex - level_cur_fifo
