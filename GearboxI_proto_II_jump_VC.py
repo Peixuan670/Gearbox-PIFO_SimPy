@@ -134,7 +134,7 @@ class Gearbox_I(HW_sim_object):
                 self.find_earliest_fifo_pipe_req_arr_A[index], self.find_earliest_fifo_pipe_dat_arr_A[index], \
                 self.fifo_r_in_pipe_matrix_A[index], self.fifo_r_out_pipe_matrix_A[index], \
                 self.fifo_w_in_pipe_matrix_A[index], self.fifo_w_out_pipe_matrix_A[index], \
-                index, \
+                index, "A",\
                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
             self.levelsA.append(cur_level)
@@ -183,7 +183,7 @@ class Gearbox_I(HW_sim_object):
                 self.find_earliest_fifo_pipe_req_arr_B[index], self.find_earliest_fifo_pipe_dat_arr_B[index], \
                 self.fifo_r_in_pipe_matrix_B[index], self.fifo_r_out_pipe_matrix_B[index], \
                 self.fifo_w_in_pipe_matrix_B[index], self.fifo_w_out_pipe_matrix_B[index], \
-                index, \
+                index, "B",\
                 fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0)
 
             self.levelsB.append(cur_level)
@@ -273,25 +273,25 @@ class Gearbox_I(HW_sim_object):
                     enque_index = current_fifo_index + fifo_index_offset
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} A, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                    print("[Gearbox] pkt {} enque level {} A, fifo {} (cur A, enq current set A)".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == False) and enque_current_set)):
                     # Case 02: Enque current Set B
                     enque_index = current_fifo_index + fifo_index_offset
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} B, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                    print("[Gearbox] pkt {} enque level {} B, fifo {} (cur B, enq current set B)".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == True) and not enque_current_set)):
                     # Case 02: Enque next Set B
                     enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} A, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                    print("[Gearbox] pkt {} enque level {} A, fifo {} (cur A, enq next set B)".format(pkt.get_uid(), insert_level, enque_index))
                 else:
                     # Case 02: Enque next Set A
                     enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} B, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                    print("[Gearbox] pkt {} enque level {} B, fifo {} (cur B, enq next set A)".format(pkt.get_uid(), insert_level, enque_index))
                 
                 self.pkt_cnt = self.pkt_cnt + 1
                 self.gb_enq_pipe_sts.put(True) # enque successfully
