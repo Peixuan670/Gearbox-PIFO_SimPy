@@ -18,12 +18,12 @@ class Pkt_mon(HW_sim_object):
 
     def run(self):
         self.env.process(self.pkt_mon_queue())
-        #self.env.process(self.pkt_mon_sm())
+        self.env.process(self.pkt_mon_sm())
 
     def pkt_mon_queue(self):
         i = 0
         (self.num_flows, self.num_pkts) = yield self.mon_info_pipe.get()
-        print('pkt mon info: num_flows = {}, num_pkts = {}'.format(self.num_flows, self.num_pkts))
+        print('pkt mon queue: num_flows = {}, num_pkts = {}'.format(self.num_flows, self.num_pkts))
         total_num_pkts = sum(self.num_pkts)
         print ('expecting {} packets'.format(total_num_pkts))
         pkt_cnt = 0
@@ -40,12 +40,14 @@ class Pkt_mon(HW_sim_object):
             else:
                 i = 0
             # Wait until there's room in the queue
-            #while (self.pkt_mon_lst[0][0] == 1 and self.pkt_mon_lst[1][0] == 1):
-            #    yield self.wait_sys_clks(1)
+            while (self.pkt_mon_lst[0][0] == 1 and self.pkt_mon_lst[1][0] == 1):
+                yield self.wait_sys_clks(1)
             pkt_cnt += 1
-    #    pkt_mon_sm();
-    #def pkt_mon_sm(self):
+
+    def pkt_mon_sm(self):
         i = 0
+        while (self.num_flows == 0):
+            yield self.wait_sys_clks(1)
         print('pkt_mon - num_flows = {}'.format(self.num_flows))
         pkt_lst = [[] for j in range(self.num_flows)]
         rank_lst = []
@@ -76,9 +78,9 @@ class Pkt_mon(HW_sim_object):
         for j in range (self.num_flows):
             print ("Flow {} pkts: {}".format(j, pkt_lst[j]))
             if len(pkt_lst[j]) != self.num_pkts[j]:
-                print ("Received {} packets, expecting {len(pkt_lst[j])} packets".format(self.num_pkts[j]))
+                print ("Received {} packets, expecting {} packets".format(len(pkt_lst[j]), self.num_pkts[j]))
             for i in range(len(pkt_lst[j])):
-                if pkt_lst[j][i] != i:
+                if pkt_lst[j][i] != i+1:
                     print ("OOO in flow {}: Expecting packet #{}, received packet #{}".format(j, i, pkt_lst[j][i]))
         #print ("Ranks: {}".format(rank_lst))
         sched_err_cnt = 0
