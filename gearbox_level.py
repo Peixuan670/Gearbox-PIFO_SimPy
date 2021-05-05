@@ -131,7 +131,9 @@ class Gearbox_level(HW_sim_object):
         # update current serving fifo
         old_fifo = self.cur_fifo
         if self.fifos[self.cur_fifo].get_len() == 0:
-            self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
+            self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num
+        #self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num      # 05052021 Peixuan
+        print("[Level debug] Level {} vc updates to {}, cur_fifo = {}".format(self.level_index, self.vc, self.cur_fifo))       
         
         is_new_fifo = not (old_fifo==self.cur_fifo)
         return (self.vc, is_new_fifo) # to see if the cur_fifo is updated
