@@ -11,6 +11,7 @@ class Gearbox_level(HW_sim_object):
                  enq_pipe_cmd, enq_pipe_sts, deq_pipe_req, deq_pipe_dat, \
                  find_earliest_fifo_pipe_req, find_earliest_fifo_pipe_dat, \
                  fifo_r_in_pipe_arr, fifo_r_out_pipe_arr, fifo_w_in_pipe_arr, fifo_w_out_pipe_arr, \
+                 level_index, \
                  fifo_write_latency=1, fifo_read_latency=1, fifo_check_latency=1, fifo_num=10, initial_vc=0):
                  
         super(Gearbox_level, self).__init__(env, line_clk_period, sys_clk_period)
@@ -27,6 +28,8 @@ class Gearbox_level(HW_sim_object):
         self.fifo_read_latency = fifo_read_latency
         self.fifo_write_latency = fifo_write_latency
         self.fifo_check_latency = fifo_check_latency    # depreciated
+
+        self.level_index = level_index
 
         self.fifos = []     # fifo array
 
@@ -68,10 +71,10 @@ class Gearbox_level(HW_sim_object):
     def find_earliest_non_empty_fifo_p(self):   # depreciated        
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
-            print ('[Level] Check earliest fifo from index {}'.format(index))
+            print ('[Level {}] Check earliest fifo from index {}'.format(self.level_index, index))
             #yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
             non_empty_fifo_index = self.check_non_empty_fifo(index)
-            print ('[Level] Found earliest fifo index = {}'.format(non_empty_fifo_index))
+            print ('[Level {}] Found earliest fifo index = {}'.format(self.level_index, non_empty_fifo_index))
             self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
 
     
@@ -80,10 +83,10 @@ class Gearbox_level(HW_sim_object):
         while cur_index < self.fifo_num:
             if not self.fifos[cur_index].get_len() == 0:
                 self.find_earliest_fifo_pipe_dat.put(cur_index)
-                print ('[Level] Found earliest fifo{}'.format(cur_index))
+                print ('[Level {}] Found earliest fifo{}'.format(self.level_index, cur_index))
                 return cur_index
             cur_index = cur_index + 1
-        print ('[Level] All fifos are empty')
+        print ('[Level {}] All fifos are empty'.format(self.level_index))
         return -1
 
     
@@ -96,11 +99,11 @@ class Gearbox_level(HW_sim_object):
             if not pkt == 0:
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                print("[Level] pkt {} enqued fifo {}".format(pkt.get_uid(), enque_fifo_index))
+                print("[Level {}] pkt {} enqued fifo {}".format(self.level_index, pkt.get_uid(), enque_fifo_index))
                 self.enq_pipe_sts.put((0, 0))
                 self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
             else:
-                print("[Level] Illegal packet")
+                print("[Level{}] Illegal packet".format(self.level_index))
 
     def dequeue_p(self):
         # dequeue process
