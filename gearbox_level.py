@@ -73,11 +73,16 @@ class Gearbox_level(HW_sim_object):
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
             print ('[Level {} {}] Check earliest fifo from index {}'.format(self.level_index, self.level_set, index))
-            #yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
+            yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
             non_empty_fifo_index = self.check_non_empty_fifo(index)
             print ('[Level {} {}] Found earliest fifo index = {}'.format(self.level_index, self.level_set, non_empty_fifo_index))
             self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
 
+    def find_earliest_non_empty_fifo(self, index):
+        print ('[Level {} {} function] Check earliest fifo from index {}'.format(self.level_index, self.level_set, index))
+        non_empty_fifo_index = self.check_non_empty_fifo(index)
+        print ('[Level {} {} function] Found earliest fifo index = {}'.format(self.level_index, self.level_set, non_empty_fifo_index))
+        return non_empty_fifo_index
     
     def check_non_empty_fifo(self, index):
         cur_index = index
@@ -85,6 +90,7 @@ class Gearbox_level(HW_sim_object):
             if not self.fifos[cur_index].get_len() == 0:
                 self.find_earliest_fifo_pipe_dat.put(cur_index)
                 print ('[Level {} {}] Found earliest fifo{}'.format(self.level_index, self.level_set, cur_index))
+                print ('[Level {} {}] returning fifo{}'.format(self.level_index, self.level_set, cur_index))
                 return cur_index
             cur_index = cur_index + 1
         print ('[Level {} {}] All fifos are empty'.format(self.level_index, self.level_set))
