@@ -285,13 +285,13 @@ class Gearbox_I(HW_sim_object):
                     enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} A, fifo {} (cur A, enq next set B)".format(pkt.get_uid(), insert_level, enque_index))
+                    print("[Gearbox] pkt {} enque level {} B, fifo {} (cur A, enq next set B)".format(pkt.get_uid(), insert_level, enque_index))
                 else:
                     # Case 02: Enque next Set A
                     enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} B, fifo {} (cur B, enq next set A)".format(pkt.get_uid(), insert_level, enque_index))
+                    print("[Gearbox] pkt {} enque level {} A, fifo {} (cur B, enq next set A)".format(pkt.get_uid(), insert_level, enque_index))
                 
                 self.pkt_cnt = self.pkt_cnt + 1
                 self.gb_enq_pipe_sts.put(True) # enque successfully
