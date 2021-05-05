@@ -310,7 +310,7 @@ class Gearbox_I(HW_sim_object):
                 print("[Gearbox] Finished serving all levelsm move to next round")
                 yield self.wait_sys_clks(self.deque_02_latency) # 02232021 Peixuan: deque delay 02 (extra deque delay to update VC)
                 #self.print_debug_info() # 01262021 Peixuan debug
-                self.print_level_pkt_cnt() # 02032021 Peixuan debug
+                #self.print_level_pkt_cnt() # 02032021 Peixuan debug
                 # Run round until not return -1
                 #self.run_round()
                 # 02022021 updated vc by jumping

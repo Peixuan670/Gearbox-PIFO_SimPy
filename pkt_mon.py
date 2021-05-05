@@ -24,7 +24,10 @@ class Pkt_mon(HW_sim_object):
         i = 0
         (self.num_flows, self.num_pkts) = yield self.mon_info_pipe.get()
         print('pkt mon info: num_flows = {}, num_pkts = {}'.format(self.num_flows, self.num_pkts))
-        while True:
+        total_num_pkts = sum(self.num_pkts)
+        print ('expecting {} packets'.format(total_num_pkts))
+        pkt_cnt = 0
+        while pkt_cnt < total_num_pkts:
             # signal pkt mon ready to scheduler
             self.pkt_mon_rdy.put(1)
             # wait to receive output pkt and metadata
@@ -37,9 +40,10 @@ class Pkt_mon(HW_sim_object):
             else:
                 i = 0
             # Wait until there's room in the queue
-            while (self.pkt_mon_lst[0][0] == 1 and self.pkt_mon_lst[1][0] == 1):
-                yield self.wait_sys_clks(1)
-                
+            #while (self.pkt_mon_lst[0][0] == 1 and self.pkt_mon_lst[1][0] == 1):
+            #    yield self.wait_sys_clks(1)
+            pkt_cnt += 1
+    #    pkt_mon_sm();
     #def pkt_mon_sm(self):
         i = 0
         print('pkt_mon - num_flows = {}'.format(self.num_flows))
@@ -54,6 +58,7 @@ class Pkt_mon(HW_sim_object):
             self.pkt_mon_lst[i] = (0, (0, 0))
             #print ('@ {:.2f} - Receive: {} || {}'.format(self.env.now, tuser_out))
             # collect per flow info
+            pkt_len = tuser_out.pkt_len
             rank = tuser_out.rank
             flow_id = tuser_out.pkt_id[0]
             pkt_num = tuser_out.pkt_id[1]
@@ -61,7 +66,7 @@ class Pkt_mon(HW_sim_object):
             pkt_lst[flow_id].append(pkt_num)
             rank_lst.append((flow_id, pkt_num, rank))
             # wait number of clocks corresponding to packet preamble, packet length and IFG
-            yield self.wait_line_clks(self.PREAMBLE + pkt_out.len + self.IFG)
+            yield self.wait_line_clks(self.PREAMBLE + pkt_len + self.IFG)
             # flip index
             if i == 0:
                 i = 1
