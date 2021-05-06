@@ -6,18 +6,21 @@ from packet_storage import *
 from scapy.all import *
 
 class Pkt_mon(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, pkt_out_pipe, mon_info_pipe, pkt_mon_rdy):
+    def __init__(self, env, line_clk_period, sys_clk_period, pkt_out_pipe, drop_pipe, mon_info_pipe, pkt_mon_rdy):
         super(Pkt_mon, self).__init__(env, line_clk_period, sys_clk_period)
         self.pkt_out_pipe = pkt_out_pipe
+        self.drop_pipe = drop_pipe
         self.mon_info_pipe = mon_info_pipe
         self.pkt_mon_rdy = pkt_mon_rdy
         self.num_flows = 0
         self.num_pkts = []
         self.pkt_mon_lst = [(0, None)] * 2
+        self.drop_cnt = 0
         self.run()
 
     def run(self):
         self.env.process(self.pkt_mon_queue())
+        self.env.process(self.drop_counter())
         self.env.process(self.pkt_mon_sm())
 
     def pkt_mon_queue(self):
@@ -44,6 +47,12 @@ class Pkt_mon(HW_sim_object):
                 yield self.wait_sys_clks(1)
             pkt_cnt += 1
 
+    def drop_counter(self):
+        while True:
+            yield self.drop_pipe.get()
+            self.drop_cnt += 1
+            print('[DROP_COUNTER]: {}'.format(self.drop_cnt))
+    
     def pkt_mon_sm(self):
         i = 0
         while (self.num_flows == 0):
@@ -51,13 +60,15 @@ class Pkt_mon(HW_sim_object):
         print('pkt_mon - num_flows = {}'.format(self.num_flows))
         pkt_lst = [[] for j in range(self.num_flows)]
         rank_lst = []
-        for j in range(sum(self.num_pkts)):
+        j = 0
+        while j < sum(self.num_pkts) - self.drop_cnt:
             # Wait until there's a packet in the queue
             while (self.pkt_mon_lst[i][0] == 0):
                 yield self.wait_sys_clks(1)
             # get packet from queue
             (pkt_out, tuser_out) = self.pkt_mon_lst[i][1]
             self.pkt_mon_lst[i] = (0, (0, 0))
+            print("[PKT_MON] Received packet {} out of {}".format(j, sum(self.num_pkts)))
             #print ('@ {:.2f} - Receive: {} || {}'.format(self.env.now, tuser_out))
             # collect per flow info
             pkt_len = tuser_out.pkt_len
@@ -74,6 +85,8 @@ class Pkt_mon(HW_sim_object):
                 i = 1
             else:
                 i = 0
+            j += 1
+            
         # process results
         for j in range (self.num_flows):
             print ("Flow {} pkts: {}".format(j, pkt_lst[j]))

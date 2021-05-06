@@ -44,7 +44,7 @@ class Top_tb(HW_sim_object):
         self.desc_gen = Desc_gen(env, line_clk_period, sys_clk_period, base_file_name, self.pcap_desc_pipe, self.mon_info_pipe)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
                                   self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe)
-        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
+        self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, self.drop_pipe,\
                                self.mon_info_pipe, self.pkt_mon_rdy)
         
         self.vc = 0

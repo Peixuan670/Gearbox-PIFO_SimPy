@@ -229,7 +229,7 @@ class Gearbox_I(HW_sim_object):
             if insert_level == -1:
                 # level > max level
                 self.gb_enq_pipe_sts.put(0) # pkt overflow
-                print("[Gearbox] enque pkt overflow, exceeds highest level")
+                print("[Gearbox] enque pkt overflow, exceeds highest level - pkt finish time: {}".format(pkt_finish_time))
                 self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                 self.gb_enq_pipe_sts.put(False)
             elif insert_level == self.level_num-1:
