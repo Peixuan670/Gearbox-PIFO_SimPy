@@ -55,7 +55,7 @@ class FIFO(HW_sim_object):
                 self.items = self.items[1:]
                 self.bytes = self.bytes - data.get_bytes() # we assume data here is packet
             else:
-                print >> sys.stderr, "ERROR: FIFO pop_sm: attempted to read from empty FIFO"
+                print ("ERROR: FIFO pop_sm: attempted to read from empty FIFO")
                 data = None
             # write data back
             self.r_out_pipe.put(data)

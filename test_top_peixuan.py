@@ -27,6 +27,7 @@ class Top_tb(HW_sim_object):
 
         pcap_file_name = "test.pcap"
         base_file_name = os.path.splitext(pcap_file_name)[0]
+        rate_tuple_list = [(10,1.5), (10,0.66)]
 
 #        self.bit_rates = [1 * 10**9, 1 * 10**9, 1 * 10**9, 1 * 10**9]
 #        self.weights = [1, 1, 1, 1]
@@ -41,7 +42,10 @@ class Top_tb(HW_sim_object):
 #        self.pkt_mux = Pkt_mux(env, line_clk_period, sys_clk_period, self.pkt_gen_pipes, self.pkt_mux_pipe)
 #        self.pkt_store = Pkt_storage(env, line_clk_period, sys_clk_period, self.pkt_mux_pipe, \
 #                                     self.pkt_store_pipe, self.ptr_in_pipe, self.ptr_out_pipe, self.drop_pipe)
-        self.desc_gen = Desc_gen(env, line_clk_period, sys_clk_period, base_file_name, self.pcap_desc_pipe, self.mon_info_pipe)
+
+        
+        self.desc_gen = Desc_gen(env, line_clk_period, sys_clk_period, base_file_name, \
+                                 self.pcap_desc_pipe, self.mon_info_pipe, rate_tuple_list)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
                                   self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe)
         self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, self.drop_pipe,\
