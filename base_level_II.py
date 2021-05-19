@@ -239,6 +239,6 @@ class Base_level(HW_sim_object):
             if self.fifos[fifo_index].get_len() > 0:
                 return self.fifos[fifo_index].peek_front()
             traverse_index = traverse_index + 1
-            fifo_index = fifo_index + 1
-        return -1   # all fifos are empty
+            fifo_index = (fifo_index + 1) % self.fifo_num
+        return 0   # all fifos are empty
         

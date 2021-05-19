@@ -306,6 +306,8 @@ class Gearbox_II(HW_sim_object):
 
         print("Initialized Gearbox II Proto I")
 
+        print("[Gearbox II debug] level number = {}".format(len(self.levelsA)))
+
         self.run()
     
     def run(self):
@@ -333,17 +335,19 @@ class Gearbox_II(HW_sim_object):
                 self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                 self.gb_enq_pipe_sts.put(False)
             else:
-                current_fifo_index = self.levelsA[insert_level].cur_fifo
-                fifo_index_offset = self.find_enque_index_offset(insert_level, pkt_finish_time) # find enque fifo index offset (from cur_fifo)
-                if (current_fifo_index + fifo_index_offset) < self.fifo_num_list[insert_level]:
-                    enque_index = current_fifo_index + fifo_index_offset                                        # find enque fifo index
-                else:
-                    enque_index = current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]     # find enque fifo index
-                self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))                   # submit enque request
+                #current_fifo_index = self.levelsA[insert_level].cur_fifo
+                #fifo_index_offset = self.find_enque_index_offset(insert_level, pkt_finish_time) # find enque fifo index offset (from cur_fifo)
+                #if (current_fifo_index + fifo_index_offset) < self.fifo_num_list[insert_level]:
+                #    enque_index = current_fifo_index + fifo_index_offset                                        # find enque fifo index
+                #else:
+                #    enque_index = current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]     # find enque fifo index
+                #self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))                   # submit enque request
+                self.enq_pipe_cmd_arr_A[insert_level].put(pkt)                   # submit enque request
                 (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
                 self.pkt_cnt = self.pkt_cnt + 1
                 self.gb_enq_pipe_sts.put(True) # enque successfully
-                print("[Gearbox] pkt {} enque level {}, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                #print("[Gearbox] pkt {} enque level {}, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                print("[Gearbox] pkt {} enque level {}".format(pkt.get_uid(), insert_level))
 
             '''elif insert_level == self.level_num-1:
                 # level = max level
@@ -423,35 +427,44 @@ class Gearbox_II(HW_sim_object):
             yield self.wait_sys_clks(self.deque_01_latency) # 02232021 Peixuan: deque delay 01 (regular deque delay for every deque)
 
             (dequed_pkt, if_reload) = (0, False)
-            deque_level_index = self.find_deque_level()
 
-            #while deque_level_index == -1:
-            #    print("[GearboxII] No pkt to serve for now")            
+            # if no pkt, loop when new pkt arrives
+            while (dequed_pkt == 0):
+
+                print ("[Gearbox Debug] Gearbox II pkt_cnt: {} ".format(self.pkt_cnt))
+
+                deque_level_index = self.find_deque_level()
+
+                #while deque_level_index == -1:
+                #    print("[GearboxII] No pkt to serve for now")            
             
-            if deque_level_index == 0:
-                # deque from base level
-                print("[Gearbox II] Deque from base level")
-                level_cur_fifo = self.levelsA[deque_level_index].cur_fifo
-                self.find_earliest_fifo_pipe_req_arr_A[deque_level_index].put(level_cur_fifo)
-                dequed_fifo = yield self.find_earliest_fifo_pipe_dat_arr_A[deque_level_index].get()
-                if dequed_fifo == -1:
-                    print("[GearboxII] Error, all fifos are empty")
+                if deque_level_index == 0:
+                    # deque from base level
+                    print("[Gearbox II] Deque from base level")
+                    level_cur_fifo = self.blevel.cur_fifo
+                    print("[Gearbox II debug] base level cur VC = {}, base level cur_fifo = {}".format(self.blevel.vc, self.blevel.cur_fifo))
+                    self.find_earliest_fifo_pipe_req_arr_A[deque_level_index].put(level_cur_fifo)
+                    dequed_fifo = yield self.find_earliest_fifo_pipe_dat_arr_A[deque_level_index].get()
+                    if dequed_fifo == -1:
+                        print("[GearboxII] Error, all fifos are empty")
+                    else:
+                        print ("[GearboxII Debug] dequeing level {} A, fifo {}".format(deque_level_index, dequed_fifo))
+                        self.deq_pipe_req_arr_A[deque_level_index].put(dequed_fifo)
+                        (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
                 else:
-                    print ("[GearboxII Debug] dequeing level {} A, fifo {}".format(deque_level_index, dequed_fifo))
-                    self.deq_pipe_req_arr_A[deque_level_index].put(dequed_fifo)
+                    # deque from levels with pifo
+                    # deque from pifo, no fifo index required
+                    print ("[Gearbox Debug] dequeing level {} A, pifo".format(deque_level_index))
+                    self.deq_pipe_req_arr_A[deque_level_index].put(-1) # no deque fifo index required
                     (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
-            else:
-                # deque from levels with pifo
-                # deque from pifo, no fifo index required
-                print ("[Gearbox Debug] dequeing level {} A, pifo".format(deque_level_index))
-                self.deq_pipe_req_arr_A[deque_level_index].put(-1) # no deque fifo index required
-                (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
             
             self.pkt_cnt = self.pkt_cnt - 1     # update pkt_cnt
             # return pkt
             self.gb_deq_pipe_dat.put((dequed_pkt, 0))
 
-            vc_to_update = dequed_pkt.get_finish_time()
+            print ("[Gearbox Debug] deque pkt: {} , if_reload: {}".format(dequed_pkt, if_reload))
+
+            vc_to_update = dequed_pkt.get_finish_time(debug=False)
             if vc_to_update > self.vc:
                 # update vc now
                 self.update_vc(vc_to_update)
@@ -522,15 +535,33 @@ class Gearbox_II(HW_sim_object):
 
     def find_deque_level(self):
         # find the level to serve based on the self.deque_bytes[index] (bytes to deque) and self.deque_served_bytes[index] (dequed bytes)
-        index = 0
-        deque_level = 0
-        min_finish_time = self.base_level.peek_earliest_pkt().get_finish_time()
-        index = index + 1
-        while (index < self.level_num):
-            level_min_ft = self.levelsA[index].peek_pifo().get_finish_time()
-            if level_min_ft < min_finish_time:
-                deque_level = index
-            index = index + 1
+        min_finish_time = 99999999  # TODO: we need a large inital value
+        while (min_finish_time == 99999999): # TODO: find non-empty level until there is one non-empty level
+            index = 0
+            deque_level = 0
+            earliest_pkt = self.blevel.peek_earliest_pkt()
+            if earliest_pkt == 0:
+                print("No pkt in level {}, pkt_cnt = {}".format(index, self.blevel.pkt_cnt))
+            else:
+                #earliest_pkt = self.blevel.peek_earliest_pkt()
+                #if earliest_pkt == 0:
+                #    print("No pkt in level {}, pkt_cnt = {}".format(index + 1))
+                #else:
+                min_finish_time = earliest_pkt.get_finish_time(debug=False)
+            #index = index + 1
+            while (index < self.level_num - 1):
+                print("[Gearbox II debug: ] Check earliest pkt in level {}".format(index))
+                earliest_pkt = self.levelsA[index].peek_earliest_pkt()
+                if earliest_pkt == 0:
+                    print("No pkt in level {}, pkt_cnt = {}, pifo_pkt_cnt = {}".format(index + 1, self.levelsA[index].pkt_cnt, self.levelsA[index].pifo.get_len()))
+                else:
+                    level_min_ft = earliest_pkt.get_finish_time(debug=False)
+                    if level_min_ft < min_finish_time:
+                        min_finish_time = level_min_ft
+                        deque_level = index + 1
+                index = index + 1
+        
+        print("[Gearbox II debug: ] Deque from level {}".format(deque_level))
         return deque_level
 
     
@@ -595,7 +626,7 @@ class Gearbox_II(HW_sim_object):
 
         # Update ping-pong
         # based on the updated VC value, we can calculate which set to serve in each level
-        index = 0
+        #index = 0
         '''while (index < self.level_num):
             serve_set_A = (math.floor(float(updated_vc) / (self.granularity_list[index] * self.fifo_num_list[index])) % 2 == 0)
             self.level_ping_pong_arr[index] = serve_set_A
@@ -604,6 +635,8 @@ class Gearbox_II(HW_sim_object):
 
         # for each level to find current serving fifos
         index = 0
+        self.blevel.update_vc(self.vc)          # update vc of the base level
+
         while (index < self.level_num - 1):     # The highest level don't have AB ping pong level
             # update level vc
             (level_vc, is_new_fifo_A) = self.levelsA[index].update_vc(self.vc) # update_vc will return (vc, is_updated)
@@ -628,7 +661,8 @@ class Gearbox_II(HW_sim_object):
             index = index + 1
         
         # start to migrate each level
-        while (index < self.level_num):     # from level 1 to top level
+        index = 1                               # starting from level 1 (not base level 0)
+        while (index < self.level_num - 1):     # from level 1 to top level
             (level_vc, is_new_fifo_A) = self.levelsA[index].update_vc(self.vc)
             self.mig_pipe_req_arr_A[index].put(self.levelsA[index].cur_fifo)    # start from the updated cur_fifo
             index = index + 1
