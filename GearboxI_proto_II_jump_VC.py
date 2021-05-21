@@ -229,7 +229,7 @@ class Gearbox_I(HW_sim_object):
             if insert_level == -1:
                 # level > max level
                 self.gb_enq_pipe_sts.put(0) # pkt overflow
-                print("[Gearbox] enque pkt overflow, exceeds highest level - pkt finish time: {}".format(pkt_finish_time))
+                #print("[Gearbox] enque pkt overflow, exceeds highest level - pkt finish time: {}".format(pkt_finish_time))
                 self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                 self.gb_enq_pipe_sts.put(False)
             elif insert_level == self.level_num-1:
@@ -245,7 +245,7 @@ class Gearbox_I(HW_sim_object):
                 (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
                 self.pkt_cnt = self.pkt_cnt + 1
                 self.gb_enq_pipe_sts.put(True) # enque successfully
-                print("[Gearbox] pkt {} enque level {}, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
+                #print("[Gearbox] pkt {} enque level {}, fifo {}".format(pkt.get_uid(), insert_level, enque_index))
             else:
                 # level < max level
                 if insert_level > self.prev_enq_level_lst[flow_id]:
@@ -266,32 +266,32 @@ class Gearbox_I(HW_sim_object):
                 enque_current_set = ((current_fifo_index + fifo_index_offset) < self.fifo_num_list[insert_level])
                 
                 # 01262021 Peixuan debug
-                print("[Gearbox Debug]: enque_current_set = {}, current_fifo_index = {}, fifo_index_offset = {} ".format(enque_current_set, current_fifo_index, fifo_index_offset))
+                #print("[Gearbox Debug]: enque_current_set = {}, current_fifo_index = {}, fifo_index_offset = {} ".format(enque_current_set, current_fifo_index, fifo_index_offset))
 
                 if (((self.level_ping_pong_arr[insert_level] == True) and enque_current_set)):
                     # Case 01: Enque current Set A
                     enque_index = current_fifo_index + fifo_index_offset
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} A, fifo {} (cur A, enq current set A)".format(pkt.get_uid(), insert_level, enque_index))
+                    #print("[Gearbox] pkt {} enque level {} A, fifo {} (cur A, enq current set A)".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == False) and enque_current_set)):
                     # Case 02: Enque current Set B
                     enque_index = current_fifo_index + fifo_index_offset
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} B, fifo {} (cur B, enq current set B)".format(pkt.get_uid(), insert_level, enque_index))
+                    #print("[Gearbox] pkt {} enque level {} B, fifo {} (cur B, enq current set B)".format(pkt.get_uid(), insert_level, enque_index))
                 elif (((self.level_ping_pong_arr[insert_level] == True) and not enque_current_set)):
                     # Case 02: Enque next Set B
                     enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_B[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_B[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} B, fifo {} (cur A, enq next set B)".format(pkt.get_uid(), insert_level, enque_index))
+                    #print("[Gearbox] pkt {} enque level {} B, fifo {} (cur A, enq next set B)".format(pkt.get_uid(), insert_level, enque_index))
                 else:
                     # Case 02: Enque next Set A
                     enque_index =  current_fifo_index + fifo_index_offset - self.fifo_num_list[insert_level]
                     self.enq_pipe_cmd_arr_A[insert_level].put((pkt, enque_index))
                     (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-                    print("[Gearbox] pkt {} enque level {} A, fifo {} (cur B, enq next set A)".format(pkt.get_uid(), insert_level, enque_index))
+                    #print("[Gearbox] pkt {} enque level {} A, fifo {} (cur B, enq next set A)".format(pkt.get_uid(), insert_level, enque_index))
                 
                 self.pkt_cnt = self.pkt_cnt + 1
                 self.gb_enq_pipe_sts.put(True) # enque successfully
@@ -301,7 +301,7 @@ class Gearbox_I(HW_sim_object):
         # deque process
         while True:
             yield self.gb_deq_pipe_req.get()
-            print("[Gearbox Debug] Starting deque at VC = {}".format(self.vc))
+            #print("[Gearbox Debug] Starting deque at VC = {}".format(self.vc))
 
             yield self.wait_sys_clks(self.deque_01_latency) # 02232021 Peixuan: deque delay 01 (regular deque delay for every deque)
 
@@ -309,7 +309,7 @@ class Gearbox_I(HW_sim_object):
             deque_level_index = self.find_deque_level()
             while deque_level_index == -1:
                 # No bytes to serve in this round, move to the next one
-                print("[Gearbox] Finished serving all levelsm move to next round")
+                #print("[Gearbox] Finished serving all levelsm move to next round")
                 yield self.wait_sys_clks(self.deque_02_latency) # 02232021 Peixuan: deque delay 02 (extra deque delay to update VC)
                 #self.print_debug_info() # 01262021 Peixuan debug
                 #self.print_level_pkt_cnt() # 02032021 Peixuan debug
@@ -317,26 +317,28 @@ class Gearbox_I(HW_sim_object):
                 #self.run_round()
                 # 02022021 updated vc by jumping
                 self.gb_update_VC_req.put(1)
-                print("[Gearbox Debug] put gb_update_VC_req here @ VC = {}".format(self.vc))
+                #print("[Gearbox Debug] put gb_update_VC_req here @ VC = {}".format(self.vc))
                 updated_vc = yield self.gb_update_VC_dat.get()
-                print("[Gearbox Debug] found updated VC = {} @ VC = {}".format(updated_vc, self.vc))
+                #print("[Gearbox Debug] found updated VC = {} @ VC = {}".format(updated_vc, self.vc))
                 #updated_vc = self.jump_vc()
                 self.update_vc(updated_vc)
                 deque_level_index = self.find_deque_level()
-                print ("[Gearbox] deque_level_index = {}".format(deque_level_index))
+                #print ("[Gearbox] deque_level_index = {}".format(deque_level_index))
                 
             if self.level_ping_pong_arr[deque_level_index]:
                 # Serve set A in ping-pong fifos
                 dequed_fifo = self.levelsA[deque_level_index].cur_fifo
-                print ("[Gearbox Debug] dequeing level {} A, fifo {}".format(deque_level_index, dequed_fifo))
+                #print ("[Gearbox Debug] dequeing level {} A, fifo {}".format(deque_level_index, dequed_fifo))
                 self.deq_pipe_req_arr_A[deque_level_index].put(dequed_fifo)
                 (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
+                #print("[Gearbox Debug] dequed pkt, pkt info: len: {}, rank: {}, pkt id: {}".format(dequed_pkt.get_tuser().pkt_len, dequed_pkt.get_tuser().rank, dequed_pkt.get_tuser().pkt_id))
             else:
                 # Serve set B in ping-pong fifos
                 dequed_fifo = self.levelsB[deque_level_index].cur_fifo
-                print ("[Gearbox Debug] dequeing level {} B, fifo {}".format(deque_level_index, dequed_fifo))
+                #print ("[Gearbox Debug] dequeing level {} B, fifo {}".format(deque_level_index, dequed_fifo))
                 self.deq_pipe_req_arr_B[deque_level_index].put(dequed_fifo)
                 (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_B[deque_level_index].get()
+                #print("[Gearbox Debug] dequed pkt, pkt info: len: {}, rank: {}, pkt id: {}".format(dequed_pkt.get_tuser().pkt_len, dequed_pkt.get_tuser().rank, dequed_pkt.get_tuser().pkt_id))
 
             # Update served bytes
             self.deque_served_bytes[deque_level_index] = self.deque_served_bytes[deque_level_index] + dequed_pkt.get_bytes() # TODO get pkt len
@@ -367,69 +369,14 @@ class Gearbox_I(HW_sim_object):
                     return index
             index = index + 1
         return -1 # If all level has been served, return -1
-    
-    def run_round(self):
-        # this fuction updated VC by 1
-        # We need to update self.level_ping_pong_arr if we finish serving one set
-        updated_vc = self.vc + 1
-        self.vc = updated_vc
-        print("[Gearbox] run round, current vc = {}".format(self.vc))
 
-        # Update ping-pong
-        # based on the updated VC value, we can calculate which set to serve in each level
-        index = 0
-        while (index < self.level_num):
-            serve_set_A = (math.floor(float(updated_vc) / (self.granularity_list[index] * self.fifo_num_list[index])) % 2 == 0)
-            self.level_ping_pong_arr[index] = serve_set_A
-            print("[Gearbox] updated level {} is serve A = {}".format(index, serve_set_A))
-            index = index + 1
-
-        # for each level to find current serving fifos
-        index = 0
-        while (index < self.level_num - 1):     # The highest level don't have AB ping pong level
-            # update level vc
-            (level_vc, is_new_fifo_A) = self.levelsA[index].update_vc(self.vc) # update_vc will return (vc, is_updated)
-            (level_vc, is_new_fifo_B) = self.levelsB[index].update_vc(self.vc)
-
-            if (self.level_ping_pong_arr[index] == True):
-                cur_fifo = self.levelsA[index].get_cur_fifo()
-                cur_fifo_index = self.levelsA[index].cur_fifo
-            else:
-                cur_fifo = self.levelsB[index].get_cur_fifo()
-                cur_fifo_index = self.levelsB[index].cur_fifo
-            
-            if index == 0:
-                deque_byte = cur_fifo.get_bytes() # Level 0 serve the entire fifo
-            else:
-                deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
-                print("[deque_byte_debug] portion = {}, remaining portion = {}/{} = {}".format(float(self.granularity_list[0])/self.granularity_list[index]), cur_fifo_index+1, self.fifo_num_list[index], math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]))
-                print("[deque_byte_debug] deque_byte = {}*{} = ".format((float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]), cur_fifo.get_bytes()))
-            
-            self.deque_bytes[index] = deque_byte
-            print("[Gearbox] updated level {} serve bytes = {}".format(index, deque_byte))
-            self.deque_served_bytes[index] = 0
-
-            index = index + 1
-        
-        # update top level deque bytes
-        
-        cur_fifo = self.levelsA[index].get_cur_fifo()
-        cur_fifo_index = self.levelsA[index].cur_fifo
-        deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO        
-        print("[deque_byte_debug] portion = {}, remaining portion = {}/{} = {}".format(float(self.granularity_list[0])/self.granularity_list[index]), cur_fifo_index+1, self.fifo_num_list[index], math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]))
-        print("[deque_byte_debug] deque_byte = {}*{} = ".format((float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]), cur_fifo.get_bytes()))
-        self.deque_bytes[index] = deque_byte
-        print("[Gearbox] updated level {} serve bytes = {}".format(index, deque_byte))
-        self.deque_served_bytes[index] = 0
-        # Update vc to outside
-        self.vc_data_pipe.put(self.vc)
 
     def update_vc(self, updated_vc):
         # this fuction updated VC to input updated_vc
         # We need to update self.level_ping_pong_arr if we finish serving one set
                 
         self.vc = updated_vc
-        print("[Gearbox] <update_vc> run round, current vc = {}".format(self.vc))
+        #print("[Gearbox] <update_vc> run round, current vc = {}".format(self.vc))
 
         # Update ping-pong
         # based on the updated VC value, we can calculate which set to serve in each level
@@ -438,7 +385,7 @@ class Gearbox_I(HW_sim_object):
             # Only update levels excepts top level
             serve_set_A = (math.floor(float(updated_vc) / (self.granularity_list[index] * self.fifo_num_list[index])) % 2 == 0)
             self.level_ping_pong_arr[index] = serve_set_A
-            print("[Gearbox] <update_vc> updated level {} is serve A = {}".format(index, serve_set_A))
+            #print("[Gearbox] <update_vc> updated level {} is serve A = {}".format(index, serve_set_A))
             index = index + 1
 
         # for each level to find current serving fifos
@@ -459,15 +406,18 @@ class Gearbox_I(HW_sim_object):
                 deque_byte = cur_fifo.get_bytes() # Level 0 serve the entire fifo
             else:
                 deque_byte = (float(self.granularity_list[0])/self.granularity_list[index]) * math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) * cur_fifo.get_bytes() # TODO we need to implement get_bytes() function in FIFO
-                '''print("[deque_byte debug] float(self.granularity_list[0])/self.granularity_list[index]) = {}".format(float(self.granularity_list[0])/self.granularity_list[index]))
-                print("[deque_byte debug] math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) = {}".format(math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index])))
-                print("[deque_byte debug] cur_fifo.get_bytes()) = {}".format(cur_fifo.get_bytes()))
+                '''print("[deque_byte debug] [Portion] float(self.granularity_list[0])/self.granularity_list[index]) = {}".format(float(self.granularity_list[0])/self.granularity_list[index]))
+                print("[deque_byte debug] [Left over] math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index]) = {}".format(math.ceil(float(cur_fifo_index+1)/self.fifo_num_list[index])))
+                print("[deque_byte debug] [FIFO byte size] cur_fifo.get_bytes()) = {}".format(cur_fifo.get_bytes()))
+                print("[deque_byte debug] [FIFO pkt size] cur_fifo.get_len()) = {}".format(cur_fifo.get_len()))
+                if not cur_fifo.get_len() == 0:
+                    print("[deque_byte debug] [FIFO pkt size] first pkt size = {}".format(cur_fifo.items[0].get_bytes()))
                 print("[deque_byte debug] cur_fifo = {}, cur_fifo_pkt = {}, cur_fifo.get_bytes()) = {}".format(cur_fifo_index, cur_fifo.get_len(), cur_fifo.get_bytes()))
                 print("[deque_byte debug] deque_byte) = {}".format(deque_byte))'''
             
             
             self.deque_bytes[index] = deque_byte
-            print("[Gearbox] <update_vc> updated level {} serve bytes = {}".format(index, deque_byte))
+            #print("[Gearbox] <update_vc> updated level {} serve bytes = {}".format(index, deque_byte))
             self.deque_served_bytes[index] = 0
 
             index = index + 1
@@ -487,7 +437,7 @@ class Gearbox_I(HW_sim_object):
         print("[deque_byte debug] cur_fifo = {}, cur_fifo_pkt = {}, cur_fifo.get_bytes()) = {}".format(cur_fifo_index, cur_fifo.get_len(), cur_fifo.get_bytes()))
         print("[deque_byte debug] deque_byte) = {}".format(deque_byte))'''
 
-        print("[Gearbox] <update_vc> updated level {} serve bytes = {}".format(index, deque_byte))
+        #print("[Gearbox] <update_vc> updated level {} serve bytes = {}".format(index, deque_byte))
         self.deque_served_bytes[index] = 0
         # Update vc to outside
         self.vc_data_pipe.put(self.vc)
@@ -497,7 +447,7 @@ class Gearbox_I(HW_sim_object):
         # jump to next non-empty vc
         while True:
             yield self.gb_update_VC_req.get()
-            print("[Gearbox Debug] <jump_vc_p>: Starting to find jump VC")
+            #print("[Gearbox Debug] <jump_vc_p>: Starting to find jump VC")
 
             #(level_index, fifo_index, is_current_set) = self.find_earliest_non_empty_level_fifo()
             self.gb_jump_VC_req.put(1)
@@ -507,7 +457,7 @@ class Gearbox_I(HW_sim_object):
             while level_index == -1:
                 # all empty, not update vc
                 #(level_index, fifo_index, is_current_set) = self.find_earliest_non_empty_level_fifo()
-                print("[Gearbox Debug] <jump_vc_p>: All levels are empty")
+                #print("[Gearbox Debug] <jump_vc_p>: All levels are empty")
                 self.gb_jump_VC_req.put(1)
                 #(level_index, fifo_index, is_current_set) = yield self.gb_jump_VC_dat.get()
                 (updated_vc, level_index, fifo_index, is_set_A) = yield self.gb_jump_VC_dat.get()
@@ -519,7 +469,7 @@ class Gearbox_I(HW_sim_object):
     def find_earliest_non_empty_level_fifo_p(self):
         while True:
             yield self.gb_jump_VC_req.get()
-            print("[Jump VC process debug] @ VC = {}, get jump vc req".format(self.vc))
+            #print("[Jump VC process debug] @ VC = {}, get jump vc req".format(self.vc))
             #print("[Peixuan debug] now level 1 A fifo 9 length = {}".format(self.levelsA[1].fifos[9].get_len()))
             level = 0
             #updated_vc = float('inf')   # initialized as infinity
@@ -530,7 +480,7 @@ class Gearbox_I(HW_sim_object):
             debug_level_index = -1
             debug_fifo_index = -1
             debug_is_setA = False
-            self.print_level_pkt_cnt()	# peixuan debug
+            #self.print_level_pkt_cnt()	# peixuan debug
 
             # get max vc of the earliest non-empty fifo in each level each set
             while (level < self.level_num - 1):
@@ -544,26 +494,19 @@ class Gearbox_I(HW_sim_object):
                     cur_fifo = 0
                     cur_set = False
                 
-                '''# Peixuan debug: here is the problem in jump vc
-                earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
-                print("[vc_pipe_debug] @ VC = {}, now level 1 A fifo 9 length = {}".format(self.vc, self.levelsA[1].fifos[9].get_len()))                
-                self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()
-                print("[vc_pipe_debug] @ VC = {} we are getting find_earliest_fifo_pipe_dat_arr_A level {} non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))'''
-                
                 
                 # Peixuan debug: we change process to regular function
                 earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
                 #print("[vc_function] @ VC = {}, now level 1 A fifo 9 length = {}".format(self.vc, self.levelsA[1].fifos[9].get_len()))                
                 earlest_fifo_idex = self.levelsA[level].find_earliest_non_empty_fifo(cur_fifo)
-                print("[vc_funxtion] @ VC = {} we are getting level {} A non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
+                #print("[vc_funxtion] @ VC = {} we are getting level {} A non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
                 
                 
                 if not earlest_fifo_idex == -1:
                     # found a non-empty fifo
                     has_non_empty_fifo = True
-                    print("[jump vc debug] level {} A is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
-                    print("[jump vc debug] level {} A pkt_cnt = {}, fifo {} len = {}".format(level, self.levelsA[level].pkt_cnt, earlest_fifo_idex, self.levelsA[level].fifos[earlest_fifo_idex].get_len()))  # Peixuan debug 05042021
+                    #print("[jump vc debug] level {} A is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
+                    #print("[jump vc debug] level {} A pkt_cnt = {}, fifo {} len = {}".format(level, self.levelsA[level].pkt_cnt, earlest_fifo_idex, self.levelsA[level].fifos[earlest_fifo_idex].get_len()))  # Peixuan debug 05042021
 
                     # cur_fifo_index in cur_set in this level
                     jump_index_offset = 0
@@ -600,19 +543,16 @@ class Gearbox_I(HW_sim_object):
                 else:
                     cur_fifo = 0
                     cur_set = False
-                
-                '''self.find_earliest_fifo_pipe_req_arr_B[level].put(cur_fifo)
-                earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_B[level].get()'''
 
                 # Peixuan debug: we change process to regular function
                 earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
                 earlest_fifo_idex = self.levelsB[level].find_earliest_non_empty_fifo(cur_fifo)
-                print("[vc_funxtion] @ VC = {} we are getting level {} B non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
+                #print("[vc_funxtion] @ VC = {} we are getting level {} B non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
 
                 if not earlest_fifo_idex == -1:
                     # found a non-empty fifo
                     has_non_empty_fifo = True
-                    print("[jump vc debug] level {} B is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
+                    #print("[jump vc debug] level {} B is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
 
                     # cur_fifo_index in cur_set in this level
                     jump_index_offset = 0
@@ -621,16 +561,13 @@ class Gearbox_I(HW_sim_object):
                         jump_index_offset = earlest_fifo_idex - level_cur_fifo
                     else:
                         jump_index_offset = earlest_fifo_idex + self.fifo_num_list[level] - level_cur_fifo
+                    #print("[jump vc debug] level {} jump index offse =  {}".format(level, jump_index_offset))  # Peixuan debug 05042021
 
                     #max_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
                     min_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
+                    #print("[jump vc debug] min_vc =  {}".format(min_vc))  # Peixuan debug 05042021
 
-                    #if not (level == 0):
-                    #    # if not level 0, jump to the end of this fifo, that's max vc for this fifo
-                    #    max_vc = max_vc + self.granularity_list[level] - 1
-                        
-                    #if (max_vc < updated_vc):
-                    #    updated_vc = max_vc
+                    
                     if (min_vc < updated_vc):
                         updated_vc = min_vc
                         # debug usage
@@ -644,9 +581,6 @@ class Gearbox_I(HW_sim_object):
 
             # set A:
             cur_fifo = self.levelsA[level].cur_fifo
-
-            '''self.find_earliest_fifo_pipe_req_arr_A[level].put(cur_fifo)
-            earlest_fifo_idex = yield self.find_earliest_fifo_pipe_dat_arr_A[level].get()'''
 
             # Peixuan debug: we change process to regular function
 
@@ -667,47 +601,14 @@ class Gearbox_I(HW_sim_object):
                 jump_index_offset = 0
                 level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
                 jump_index_offset = earlest_fifo_idex - level_cur_fifo + self.fifo_num_list[level]
-            
-            
-            '''earlest_fifo_idex = -1  # Try to reset to see if this solve the problem
-            earlest_fifo_idex = self.levelsA[level].find_earliest_non_empty_fifo(cur_fifo)
-            print("[vc_funxtion] @ VC = {} we are getting top level {} A non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
-
-
-            if not earlest_fifo_idex == -1:
-                # found a non-empty fifo
-                has_non_empty_fifo = True
-
-                print("[jump vc debug] top level {} A is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
-
-                jump_index_offset = 0
-                level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
-                jump_index_offset = earlest_fifo_idex - level_cur_fifo'''
-
-            '''else:
-                # rotate to fifo 0 in top level
-                earlest_fifo_idex = self.levelsA[level].find_earliest_non_empty_fifo(0)
-                print("[vc_funxtion] After rotation, @ VC = {} we are getting top level {} A non empty fifo = {}".format(self.vc, level, earlest_fifo_idex))
-                if not earlest_fifo_idex == -1:
-                    # found a non-empty fifo after rotation
-                    has_non_empty_fifo = True
-
-                    print("[jump vc debug] After rotation, top level {} A is not empty, find fifo {}".format(level, earlest_fifo_idex))  # Peixuan debug 05042021
-
-                    jump_index_offset = 0
-                    level_cur_fifo = math.floor(self.vc/self.granularity_list[level]) % self.fifo_num_list[level]
-                    jump_index_offset = earlest_fifo_idex - level_cur_fifo + self.fifo_num_list[level]  # rotation + total fifo number'''
                 
-            print("[Jump VC debug] jump_index_offset = {}".format(jump_index_offset))
+            #print("[Jump VC debug] jump_index_offset = {}".format(jump_index_offset))
             
-            #max_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
             min_vc = (math.floor(self.vc/self.granularity_list[level]) + jump_index_offset) * self.granularity_list[level]
-            print("[Jump VC debug] min_vc = {}".format(min_vc))
+            #print("[Jump VC debug] min_vc = {}".format(min_vc))
 
             #max_vc = max_vc + self.granularity_list[level] - 1
                         
-            #if (max_vc < updated_vc):
-            #    updated_vc = max_vc
             if (min_vc < updated_vc):
                 updated_vc = min_vc
                 # debug usage
@@ -715,15 +616,17 @@ class Gearbox_I(HW_sim_object):
                 debug_fifo_index = earlest_fifo_idex
                 debug_is_setA = True
             
+            #print("[Jump VC debug] final update_vc = {}".format(updated_vc))
+            
             if (self.vc + 1) > updated_vc:
                 updated_vc = self.vc + 1
 
             if (has_non_empty_fifo):
                 self.gb_jump_VC_dat.put((updated_vc, debug_level_index, debug_fifo_index, debug_is_setA)) #updated_vc, level index, fifo index, is set A
-                print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} , is set A: {}, fifo: {}, updated vc = {}".format(debug_level_index, debug_is_setA, debug_fifo_index, updated_vc))
+                #print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Found non-empty fifo in level: {} , is set A: {}, fifo: {}, updated vc = {}".format(debug_level_index, debug_is_setA, debug_fifo_index, updated_vc))
             else:
                 self.gb_jump_VC_dat.put((self.vc, -1, -1, debug_is_setA)) #updated_vc, level index, fifo index, is set A
-                print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Not Found non-empty fifo")
+                #print("[Gearbox debug] <find_earliest_non_empty_level_fifo_p> Not Found non-empty fifo")
     
 
     
@@ -803,7 +706,6 @@ class Gearbox_I(HW_sim_object):
             while(fifo_index < self.fifo_num_list[index]):
                 print("<print_level_pkt_cnt> FIFO{} pkt cnt: {}".format(fifo_index, self.levelsA[index].fifos[fifo_index].get_len()))
                 fifo_index = fifo_index + 1
-
 
 
         

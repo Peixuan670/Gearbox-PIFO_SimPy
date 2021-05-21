@@ -21,16 +21,13 @@ class Pkt_sched(HW_sim_object):
         self.drop_pipe = drop_pipe
         
         self.vc = 0
-        #self.prev_fifo = 0
 
         # gearbox enque pipe
         self.gb_enq_pipe_cmd = simpy.Store(env)
         self.gb_enq_pipe_sts = simpy.Store(env)
         self.gb_deq_pipe_req = simpy.Store(env)
         self.gb_deq_pipe_dat = simpy.Store(env)
-        #self.find_earliest_fifo_pipe_req = simpy.Store(env)
-        #self.find_earliest_fifo_pipe_dat = simpy.Store(env)
-        #self.fifo_num = fifo_num
+
         fifo_num_list = [10, 10, 10]
         granularity_list = [1, 10, 100]
         fifo_size_list = [128, 128, 128]
@@ -44,8 +41,6 @@ class Pkt_sched(HW_sim_object):
                                 self.gearbox_vc_upd_pipe, self.drop_pipe, \
                                 granularity_list, fifo_num_list, fifo_size_list, pifo_size_list, pifo_thresh_list,\
                                 fifo_check_latency=1, initial_vc=0)
-
-        #self.ptr_list = list() # remove
         
         self.run()
 
@@ -58,18 +53,7 @@ class Pkt_sched(HW_sim_object):
         prev_fin_time_lst = [0] * 1024
         tmp_tuser = Tuser(0, 0, (0, 0))     # We need a new tmp_user each time
         while True:
-            #(head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
             desc_in = yield self.ptr_out_pipe.get()
-            #self.ptr_list.append((head_seg_ptr, meta_ptr, tuser))
-
-            '''# 05172021 Peixuan debug
-            level1Bfifo5 = self.gearbox.levelsB[1].fifos[5]
-            print ('[pkt_sched_debug] Before get the pkt, Current Gearbox Level 1 B FIFO 5 len: {}'.format(level1Bfifo5.get_len()))
-            if not level1Bfifo5.get_len() == 0: 
-                debug_pkt = level1Bfifo5.items[0]
-                debug_tuser = debug_pkt.get_tuser()
-                print ('[pkt_sched_debug] Before get the pkt, Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
-
 
             print ('@ {:.2f} - Enqueue: tuser = {}'.format(self.env.now, desc_in))
             pkt_len = desc_in[0]
@@ -78,57 +62,22 @@ class Pkt_sched(HW_sim_object):
             pkt_id = desc_in[3]
             fin_time = max(prev_fin_time_lst[flow_id], self.vc) + rank
 
-
-            '''# 05172021 Peixuan debug
-            level1Bfifo5 = self.gearbox.levelsB[1].fifos[5]
-            if not level1Bfifo5.get_len() == 0: 
-                debug_pkt = level1Bfifo5.items[0]
-                debug_tuser = debug_pkt.get_tuser()
-                print ('[pkt_sched_debug] After get meta data in des: Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
-
-
-            #if self.blevel.fifo_num > (fin_time - self.vc):
-            #    prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
-            #desc_out = (pkt_len, fin_time, flow_id, pkt_id)
-
             tmp_tuser = Tuser(0, 0, (0, 0))     # We need a new tmp_user each time, Peixuan 05172021
 
             tmp_tuser.pkt_len = pkt_len
             tmp_tuser.rank = fin_time
             tmp_tuser.pkt_id = (flow_id, pkt_id)
 
-            '''if not level1Bfifo5.get_len() == 0: 
-                debug_pkt = level1Bfifo5.items[0]
-                debug_tuser = debug_pkt.get_tuser()
-                print ('[pkt_sched_debug] After setting tmp_tuser: Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
-
-
             print ('@ {:.2f} - Enqueue: desc_out = {}'.format(self.env.now, tmp_tuser))
             enq_pkt_des = Packet_descriptior(0, 0, tmp_tuser)
             print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, enq_pkt_des.get_uid(), enq_pkt_des.get_finish_time(debug=True)))
-            
-            '''# 05172021 Peixuan debug
-            level1Bfifo5 = self.gearbox.levelsB[1].fifos[5]
-            if not level1Bfifo5.get_len() == 0: 
-                debug_pkt = level1Bfifo5.items[0]
-                debug_tuser = debug_pkt.get_tuser()
-                print ('[pkt_sched_debug] Before enque, Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
-
 
             self.gb_enq_pipe_cmd.put(enq_pkt_des)
-
-            '''# 05172021 Peixuan debug
-            level1Bfifo5 = self.gearbox.levelsB[1].fifos[5]
-            if not level1Bfifo5.get_len() == 0: 
-                debug_pkt = level1Bfifo5.items[0]
-                debug_tuser = debug_pkt.get_tuser()
-                print ('[pkt_sched_debug] After enque befor response: Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
 
             enq_success = yield self.gb_enq_pipe_sts.get()  # Enqued: return True; pkt dropped: return False
 
             if enq_success:
                 prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
-
 
     def sched_deq(self):
         while True:
@@ -142,40 +91,12 @@ class Pkt_sched(HW_sim_object):
                 yield self.wait_sys_clks(1)
 
                 if self.gearbox.get_pkt_cnt() > 0:
-                    ##current_fifo_index = self.blevel.get_cur_fifo()
 
-                    # 12312020 Peixuan test
-                    '''if not self.prev_fifo == current_fifo_index:
-                        self.prev_fifo = current_fifo_index
-                        self.vc = self.vc + self.blevel.granularity
-                        #for i in range(4): # TODO: already known magic number
-                        #    self.vc_upd_pipe.put(self.vc)
-                        self.vc_upd_pipe.put(self.vc)
-                        self.blevel.update_vc(self.vc)
-                        print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debug'''
-
-                    ##self.find_earliest_fifo_pipe_req.put(current_fifo_index)
-                    ##deque_fifo = yield self.find_earliest_fifo_pipe_dat.get()
-                    ##self.deq_pipe_req.put(deque_fifo)
                     self.gb_deq_pipe_req.put(1)     # put anything here to request for a deque
                     data = yield self.gb_deq_pipe_dat.get()
-                    #print ("*****Data from scheduler is: {}".format(data))
                     deq_pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>
-                    #print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
                     print ('@ {} - From Gearbox dequed pkt {} with rank = {}'.format(self.env.now, deq_pkt_des.get_uid(), deq_pkt_des.get_finish_time(debug=True)))
-                    
-                    '''# update vc
-                    pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug? # 01062020 Peixuan: only update vc from top level
-                    #self.blevel.update_vc(pkt_ft)                                      # 01062020 Peixuan: only update vc from top level
-                    #print("Updated blevel vc = {}".format(self.blevel.vc)) # Peixuan debug
-                    if self.vc < pkt_ft:
-                        self.vc = pkt_ft
-                        self.vc_upd_pipe.put(self.vc)
-                        self.blevel_vc_upd_pipe.put(self.vc)
-                        print("updated pkt_sched vc = {}".format(self.vc)) # Peixuan debug'''
 
-
-                    #((head_seg_ptr, meta_ptr, tuser)) = self.ptr_list.pop(0)
                     head_seg_ptr = deq_pkt_des.get_hdr_addr()
                     meta_ptr = deq_pkt_des.get_meta_addr()
                     tuser = deq_pkt_des.get_tuser()

@@ -104,17 +104,17 @@ class GearboxII_level(HW_sim_object):
     
     def peek_earliest_pkt(self):
         top_pkt = self.pifo.peek_front()
-        print("[Gearbox II level debug] pifo size = {}".format(self.pifo.get_len()))
+        #print("[Gearbox II level debug] pifo size = {}".format(self.pifo.get_len()))
         return top_pkt
 
     
     def find_earliest_non_empty_fifo_p(self):   # depreciated        
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
-            print ('[Level] Check earliest fifo from index {}'.format(index))
-            #yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
+            #print ('[Level] Check earliest fifo from index {}'.format(index))
+            ##yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
             non_empty_fifo_index = self.check_non_empty_fifo(index)
-            print ('[Level] Found earliest fifo index = {}'.format(non_empty_fifo_index))
+            #print ('[Level] Found earliest fifo index = {}'.format(non_empty_fifo_index))
             self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
 
     
@@ -123,10 +123,10 @@ class GearboxII_level(HW_sim_object):
         while cur_index < self.fifo_num:
             if not self.fifos[cur_index].get_len() == 0:
                 self.find_earliest_fifo_pipe_dat.put(cur_index)
-                print ('[Level] Found earliest fifo{}'.format(cur_index))
+                #print ('[Level] Found earliest fifo{}'.format(cur_index))
                 return cur_index
             cur_index = cur_index + 1
-        print ('[Level] All fifos are empty')
+        #print ('[Level] All fifos are empty')
         return -1
 
     
@@ -139,27 +139,27 @@ class GearboxII_level(HW_sim_object):
                 #if pkt.get_finish_time(debug=False) < self.pifo_max_time:
                 if (pkt.get_finish_time(debug=False) < self.pifo.get_max_time()) or (self.pifo.get_len() < self.pifo_threshold):
                     # TODO enque PIFO
-                    print("[Gearbox II level debug] Enque pifo")
+                    #print("[Gearbox II level debug] Enque pifo")
                     self.pifo_w_in_pipe.put(pkt)
                     (done, popped_pkt, popped_pkt_valid) = yield self.pifo_w_out_pipe.get()
-                    #self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
+                    ##self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
 
                     # recycle popped_pkt FIFO
                     if popped_pkt_valid == 1:
                         enque_fifo_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo index
                         self.fifo_w_in_pipe_arr[enque_fifo_index].put(popped_pkt)
                         yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                        print("[Level] pkt {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
+                        #print("[Level] pkt {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
                     
                     self.enq_pipe_sts.put((0, 0))
                     self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
-                    print("[Gearbox II level debug] Enque pifo complete, now pifo len = {}, level pkt cnt = {}".format(self.pifo.get_len(), self.pkt_cnt))
+                    #print("[Gearbox II level debug] Enque pifo complete, now pifo len = {}, level pkt cnt = {}".format(self.pifo.get_len(), self.pkt_cnt))
                 else:
                     enque_fifo_index = self.get_enque_fifo(pkt.get_finish_time(debug=False))
                     # enque FIFO
                     self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                     yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                    print("[Level] pkt {} enqued fifo {} (not base level)".format(pkt.get_uid(), enque_fifo_index))
+                    #print("[Level] pkt {} enqued fifo {} (not base level)".format(pkt.get_uid(), enque_fifo_index))
                     self.enq_pipe_sts.put((0, 0))
                     self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
             else:
@@ -172,17 +172,17 @@ class GearboxII_level(HW_sim_object):
             (pkt) = yield self.mig_enq_pipe_cmd.get() 
             if not pkt == 0:
                 if (pkt.get_finish_time(debug=False) < self.pifo.get_max_time()) or (self.pifo.get_len() < self.pifo_threshold):
-                    # TODO enque PIFO
+                    # enque PIFO
                     self.pifo_w_in_pipe.put(pkt)
                     (done, popped_pkt, popped_pkt_valid) = yield self.pifo_w_out_pipe.get()
-                    #self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
+                    ##self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
 
                     # recycle popped_pkt FIFO
                     if popped_pkt_valid == 1:
                         enque_fifo_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo index
                         self.fifo_w_in_pipe_arr[enque_fifo_index].put(popped_pkt)
                         yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                        print("[Level] pkt {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
+                        #print("[Level] pkt {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
                     
                     self.enq_pipe_sts.put((0, 0))
                     self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
@@ -191,42 +191,12 @@ class GearboxII_level(HW_sim_object):
                     # enque FIFO
                     self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                     yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                    print("[Level] mig: pkt {} enqued fifo {}".format(pkt.get_uid(), enque_fifo_index))
+                    #print("[Level] mig: pkt {} enqued fifo {}".format(pkt.get_uid(), enque_fifo_index))
                     self.mig_enq_pipe_sts.put((0, 0))
                     self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
             else:
                 print("[Level] Illegal packet")
     
-    
-    
-    '''def enqueue_p(self):
-        # enque process
-        # enque includes queue index to enque
-        while True:
-            (pkt, enque_fifo_index) = yield self.enq_pipe_cmd.get() 
-            if not pkt == 0:
-                if pkt.get_finish_time() < self.pifo_max_time:
-                    # TODO enque PIFO
-                    self.pifo_w_in_pipe.put(pkt)
-                    popped_pkt = yield self.pifo_w_out_pipe.get()
-                    self.pifo_max_time = self.pifo.peek_tail().get_finish_time() # update pifo_max_time
-
-                    # recycle popped_pkt FIFO
-                    # TODO: need to get recycle index
-                    self.fifo_w_in_pipe_arr[enque_fifo_index].put(popped_pkt)
-                    yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                    print("[Level] pkt {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
-                    self.enq_pipe_sts.put((0, 0))
-                    self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
-                else:
-                    # enque FIFO
-                    self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
-                    yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                    print("[Level] pkt {} enqued fifo {}".format(pkt.get_uid(), enque_fifo_index))
-                    self.enq_pipe_sts.put((0, 0))
-                    self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
-            else:
-                print("[Level] Illegal packet")'''
 
     def dequeue_p(self):
         # deque process (only deque PIFO)
@@ -241,9 +211,9 @@ class GearboxII_level(HW_sim_object):
                     if_reload = 1
                     self.rld_pipe_cmd.put(1) # TODO Peixuan not sure if this works
                 self.deq_pipe_dat.put((dequed_pkt, if_reload))
-                print("[Gearbox II level debug] Deque pifo complete, before update, now pifo len = {}, level pkt cnt = {}".format(self.pifo.get_len(), self.pkt_cnt))
+                #print("[Gearbox II level debug] Deque pifo complete, before update, now pifo len = {}, level pkt cnt = {}".format(self.pifo.get_len(), self.pkt_cnt))
                 self.pkt_cnt = self.pkt_cnt - 1 # update level pkt cnt
-                print("[Gearbox II level debug] Deque pifo complete, now pifo len = {}, level pkt cnt = {}".format(self.pifo.get_len(), self.pkt_cnt))
+                #print("[Gearbox II level debug] Deque pifo complete, now pifo len = {}, level pkt cnt = {}".format(self.pifo.get_len(), self.pkt_cnt))
     
     def migration_p(self):
         # migration process (deque FIFO)
@@ -268,7 +238,6 @@ class GearboxII_level(HW_sim_object):
         # reload process (deque FIFO enque PIFO)
         while True:
             # deque FIFO[index]
-            #index = yield self.rld_pipe_cmd.get()
             yield self.rld_pipe_cmd.get()
             cur_fifo_index = self.cur_fifo
             index = (cur_fifo_index + 1) % self.fifo_num
@@ -286,14 +255,14 @@ class GearboxII_level(HW_sim_object):
                     # enque PIFO
                     self.pifo_w_in_pipe.put(reload_pkt)
                     (done, popped_pkt, popped_pkt_valid) = yield self.pifo_w_out_pipe.get()
-                    #self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
+                    ##self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
 
                     # recycle popped_pkt FIFO
                     if popped_pkt_valid == 1:
                         enque_fifo_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo index
                         self.fifo_w_in_pipe_arr[enque_fifo_index].put(popped_pkt)
                         yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                        print("[Level] during reloading: {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
+                        #print("[Level] during reloading: {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
 
                 if self.pifo.get_len() < self.pifo_threshold:
                     self.rld_pipe_sts.put((0, 1)) # succefully finished reloading, need to reload more pkts

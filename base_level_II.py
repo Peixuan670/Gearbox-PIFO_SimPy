@@ -83,13 +83,13 @@ class Base_level(HW_sim_object):
     def find_earliest_non_empty_fifo_p(self):        
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
-            print ('Check earliest fifo from index {}'.format(index))
+            #print ('Check earliest fifo from index {}'.format(index))
             yield self.wait_sys_clks(self.fifo_check_latency)
             cur_index = index            
             while True:
                 if not self.fifos[cur_index].get_len() == 0:
                     self.find_earliest_fifo_pipe_dat.put(cur_index)
-                    print ('Found earliest fifo{}'.format(cur_index))
+                    #print ('Found earliest fifo{}'.format(cur_index))
                     break
                 cur_index = cur_index + 1
                 if (cur_index == self.fifo_num):
@@ -97,7 +97,7 @@ class Base_level(HW_sim_object):
                     cur_index = 0
                 if (cur_index == index):
                     self.find_earliest_fifo_pipe_dat.put(-1) # this means all the fifos are empty
-                    print ('All fifos are empty')
+                    #print ('All fifos are empty')
                     break
 
 
@@ -112,18 +112,18 @@ class Base_level(HW_sim_object):
                     fifo_index_offset = 0 # if pkt's finish time has passed, enque the current fifo
                 # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
                 if fifo_index_offset > self.fifo_num: # ignore the pkt if overflow
-                    print("fifo_index_offset = {}".format(fifo_index_offset))
-                    print("fifo num = {}".format(self.fifo_num))
-                    #print("pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
-                    print("@VC = {}, pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(self.vc, pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
+                    #print("fifo_index_offset = {}".format(fifo_index_offset))
+                    #print("fifo num = {}".format(self.fifo_num))
+                    ##print("pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
+                    #print("@VC = {}, pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(self.vc, pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
                     self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                     self.enq_pipe_sts.put((0, 0))
                     continue
                 enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
-                print("Enq: @ VC = {}, pkt with rank {} enqueued fifo {}".format(self.vc, pkt.get_finish_time(debug=False), enque_fifo_index)) # Peixuan debug
+                #print("Enq: @ VC = {}, pkt with rank {} enqueued fifo {}".format(self.vc, pkt.get_finish_time(debug=False), enque_fifo_index)) # Peixuan debug
                 if (self.vc > pkt.get_finish_time(debug=False)):                            # Peixuan debug
                     self.vc_fall_behind_cnt = self.vc_fall_behind_cnt + 1                   # Peixuan debug
-                    print("System fall behind VC cnt: {}".format(self.vc_fall_behind_cnt))  # Peixuan debug
+                    #print("System fall behind VC cnt: {}".format(self.vc_fall_behind_cnt))  # Peixuan debug
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
                 #self.enq_pipe_sts.put(1)
@@ -142,18 +142,18 @@ class Base_level(HW_sim_object):
                     fifo_index_offset = 0 # if pkt's finish time has passed, enque the current fifo
                 # we need to first use the granularity to round up vc and pkt.finish_time to calculate the fifo offset
                 if fifo_index_offset > self.fifo_num: # ignore the pkt if overflow
-                    print("fifo_index_offset = {}".format(fifo_index_offset))
-                    print("fifo num = {}".format(self.fifo_num))
-                    #print("pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
-                    print("@VC = {}, pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(self.vc, pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
+                    #print("fifo_index_offset = {}".format(fifo_index_offset))
+                    #print("fifo num = {}".format(self.fifo_num))
+                    ##print("pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
+                    #print("@VC = {}, pkt ovfl: Rx rank: {} flow_id: {} pkt_num: {}".format(self.vc, pkt.tuser.rank, pkt.tuser.pkt_id[0], pkt.tuser.pkt_id[1]))
                     self.drop_pipe.put((pkt.hdr_addr, pkt.meta_addr, pkt.tuser))
                     self.mig_enq_pipe_sts.put((0, 0))
                     continue
                 enque_fifo_index = (self.cur_fifo + fifo_index_offset) % self.fifo_num
-                print("Enq: @ VC = {}, pkt with rank {} enqueued fifo {}".format(self.vc, pkt.get_finish_time(debug=False), enque_fifo_index)) # Peixuan debug
+                #print("Enq: @ VC = {}, pkt with rank {} enqueued fifo {}".format(self.vc, pkt.get_finish_time(debug=False), enque_fifo_index)) # Peixuan debug
                 if (self.vc > pkt.get_finish_time(debug=False)):                            # Peixuan debug
                     self.vc_fall_behind_cnt = self.vc_fall_behind_cnt + 1                   # Peixuan debug
-                    print("System fall behind VC cnt: {}".format(self.vc_fall_behind_cnt))  # Peixuan debug
+                    #print("System fall behind VC cnt: {}".format(self.vc_fall_behind_cnt))  # Peixuan debug
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
                 #self.enq_pipe_sts.put(1)
@@ -161,30 +161,6 @@ class Base_level(HW_sim_object):
                 self.pkt_cnt = self.pkt_cnt + 1
             else:
                 print("Illegal packet")
-
-    """
-    def deque_fifo(self, fifo_index):
-        # deque packet from sepecific fifo, when migrating packets
-        print ("deque_fifo {}".format(fifo_index))
-        self.fifo_r_in_pipe_arr[fifo_index].put(1) 
-        print ("requested pkt from fifo {}".format(fifo_index))
-        dequed_pkt = yield self.fifo_r_out_pipe_arr[fifo_index].get()
-        print ("dequeued pkt {} from fifo {}".format(dequed_pkt, fifo_index))
-        return dequed_pkt
-    """
-    
-    '''def get_earliest_pkt_timestamp(self): # TODO: this is put into higher level
-        # return time stamp from the head of PIFO
-        if self.fifos[self.cur_fifo].get_len():
-            top_pkt = self.fifos[self.cur_fifo].peek_front()
-            return top_pkt.get_finish_time()
-        else:
-            earliest_fifo = self.find_next_non_empty_fifo(self.cur_fifo)
-            if earliest_fifo > -1:
-                top_pkt = self.fifos[earliest_fifo].peek_front()
-                return top_pkt.get_finish_time()
-            else:
-                return -1 # there is no pkt in this level'''
 
     def dequeue_p(self):
         # request includes queue index to deque:
@@ -212,8 +188,8 @@ class Base_level(HW_sim_object):
         # update current serving fifo
         if self.fifos[self.cur_fifo].get_len() == 0:
             self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num       
-        print("updated blevel vc = {}".format(self.vc)) # Peixuan debug
-        print("@VC = {} , updated blevel vc = {}".format(self.vc, self.vc)) # Peixuan debug
+        #print("updated blevel vc = {}".format(self.vc)) # Peixuan debug
+        #print("@VC = {} , updated blevel vc = {}".format(self.vc, self.vc)) # Peixuan debug
         return self.vc
     
     def get_vc(self):
@@ -224,12 +200,6 @@ class Base_level(HW_sim_object):
     
     def get_pkt_cnt(self):
         return self.pkt_cnt
-    
-    '''def top_tb(self):
-        while True:
-            updated_vc = yield self.vc_upd_pipe.get()
-            self.vc = updated_vc
-            print("updated blevel vc = {}".format(self.vc)) # Peixuan debug'''
     
     def peek_earliest_pkt(self):
         # TODO: return earliest pkt in the base level
