@@ -72,16 +72,16 @@ class Gearbox_level(HW_sim_object):
     def find_earliest_non_empty_fifo_p(self):   # depreciated        
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
-            print ('[Level {} {}] Check earliest fifo from index {}'.format(self.level_index, self.level_set, index))
+            #print ('[Level {} {}] Check earliest fifo from index {}'.format(self.level_index, self.level_set, index))
             yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
             non_empty_fifo_index = self.check_non_empty_fifo(index)
-            print ('[Level {} {}] Found earliest fifo index = {}'.format(self.level_index, self.level_set, non_empty_fifo_index))
+            #print ('[Level {} {}] Found earliest fifo index = {}'.format(self.level_index, self.level_set, non_empty_fifo_index))
             self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
 
     def find_earliest_non_empty_fifo(self, index):
-        print ('[Level {} {} function] Check earliest fifo from index {}'.format(self.level_index, self.level_set, index))
+        #print ('[Level {} {} function] Check earliest fifo from index {}'.format(self.level_index, self.level_set, index))
         non_empty_fifo_index = self.check_non_empty_fifo(index)
-        print ('[Level {} {} function] Found earliest fifo index = {}'.format(self.level_index, self.level_set, non_empty_fifo_index))
+        #print ('[Level {} {} function] Found earliest fifo index = {}'.format(self.level_index, self.level_set, non_empty_fifo_index))
         return non_empty_fifo_index
     
     def check_non_empty_fifo(self, index):
@@ -89,11 +89,11 @@ class Gearbox_level(HW_sim_object):
         while cur_index < self.fifo_num:
             if not self.fifos[cur_index].get_len() == 0:
                 self.find_earliest_fifo_pipe_dat.put(cur_index)
-                print ('[Level {} {}] Found earliest fifo{}'.format(self.level_index, self.level_set, cur_index))
-                print ('[Level {} {}] returning fifo{}'.format(self.level_index, self.level_set, cur_index))
+                #print ('[Level {} {}] Found earliest fifo{}'.format(self.level_index, self.level_set, cur_index))
+                #print ('[Level {} {}] returning fifo{}'.format(self.level_index, self.level_set, cur_index))
                 return cur_index
             cur_index = cur_index + 1
-        print ('[Level {} {}] All fifos are empty'.format(self.level_index, self.level_set))
+        #print ('[Level {} {}] All fifos are empty'.format(self.level_index, self.level_set))
         return -1
 
     
@@ -106,11 +106,12 @@ class Gearbox_level(HW_sim_object):
             if not pkt == 0:
                 self.fifo_w_in_pipe_arr[enque_fifo_index].put(pkt)
                 yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
-                print("[Level {} {}] pkt {} enqued fifo {}".format(self.level_index, self.level_set, pkt.get_uid(), enque_fifo_index))
+                #print("[Level {} {}] pkt {} enqued fifo {}".format(self.level_index, self.level_set, pkt.get_uid(), enque_fifo_index))
                 self.enq_pipe_sts.put((0, 0))
                 self.pkt_cnt = self.pkt_cnt + 1 # update level pkt cnt
             else:
-                print("[Level{} {}] Illegal packet".format(self.level_index, self.level_set))
+                pkt = 0 # Peixuan 05272021 Just to bypass this branch
+                #print("[Level{} {}] Illegal packet".format(self.level_index, self.level_set))
 
     def dequeue_p(self):
         # dequeue process
@@ -133,7 +134,7 @@ class Gearbox_level(HW_sim_object):
         if self.fifos[self.cur_fifo].get_len() == 0:
             self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num
         #self.cur_fifo = math.floor(self.vc / self.granularity) % self.fifo_num      # 05052021 Peixuan
-        print("[Level debug] Level {} vc updates to {}, cur_fifo = {}".format(self.level_index, self.vc, self.cur_fifo))       
+        #print("[Level debug] Level {} vc updates to {}, cur_fifo = {}".format(self.level_index, self.vc, self.cur_fifo))       
         
         is_new_fifo = not (old_fifo==self.cur_fifo)
         return (self.vc, is_new_fifo) # to see if the cur_fifo is updated
