@@ -14,20 +14,19 @@ from pkt_mon import *
 class Top_tb(HW_sim_object):
     def __init__(self, env, line_clk_period, sys_clk_period):
         super(Top_tb, self).__init__(env, line_clk_period, sys_clk_period)
-#        self.num_flows = 4
 #        self.ptr_in_pipe = simpy.Store(env)
         self.pcap_desc_pipe = simpy.Store(env)
         self.drop_pipe = simpy.Store(env)
         self.sched_vc_pipe = simpy.Store(env) # 12312020 Peixuan test
-#        self.pkt_gen_pipes = [simpy.Store(env)] * self.num_flows
 #        self.pkt_mux_pipe = simpy.Store(env)
         self.sched_desc_pipe = simpy.Store(env)
         self.mon_info_pipe = simpy.Store(env)
         self.pkt_mon_rdy = simpy.Store(env)
 
-        pcap_file_name = "test.pcap"
+        pcap_file_name = "smallFlows.pcap"
         base_file_name = os.path.splitext(pcap_file_name)[0]
-        rate_tuple_list = [(10,1.5), (10,0.66)]
+        rate_tuple_list = [(10,2), (10,0.5)]
+        quantum = 8
 
 #        self.bit_rates = [1 * 10**9, 1 * 10**9, 1 * 10**9, 1 * 10**9]
 #        self.weights = [1, 1, 1, 1]
@@ -45,11 +44,11 @@ class Top_tb(HW_sim_object):
 
         
         self.desc_gen = Desc_gen(env, line_clk_period, sys_clk_period, base_file_name, \
-                                 self.pcap_desc_pipe, self.mon_info_pipe, rate_tuple_list)
+                                 self.pcap_desc_pipe, self.mon_info_pipe, rate_tuple_list, quantum, verbose=True)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
-                                  self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe)
+                                  self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe, verbose=True)
         self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, self.drop_pipe,\
-                               self.mon_info_pipe, self.pkt_mon_rdy)
+                               self.mon_info_pipe, self.pkt_mon_rdy, verbose=False)
         
         self.vc = 0
         
@@ -62,8 +61,9 @@ class Top_tb(HW_sim_object):
         while True:
             updated_vc = yield self.sched_vc_pipe.get()
             self.vc = updated_vc
-            print ("Top VC: {0}".format(self.vc))
-            print("updated top vc = {}".format(self.vc)) # Peixuan debug
+            if self.verbose:
+                print ("Top VC: {0}".format(self.vc))
+                print("updated top vc = {}".format(self.vc)) # Peixuan debug
         
 def main():
     env = simpy.Environment(0.0)
@@ -72,7 +72,7 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=500000)
+    env.run(until=800000000)
 
 if __name__ == "__main__":
     main()
