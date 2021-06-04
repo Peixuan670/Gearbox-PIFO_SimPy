@@ -258,7 +258,8 @@ class Gearbox_I(HW_sim_object):
                     insert_level = self.prev_enq_level_lst[flow_id] # if last_enq_level >= insert level, enque last_enq_level
 
                 fifo_index_offset = self.find_enque_index_offset(insert_level, pkt_finish_time)
-                print("[Gearbox debug] Cal_offset: pkt {}, fifo_index_offset = {}".format(pkt.get_uid(), fifo_index_offset))
+                if self.verbose:
+                    print("[Gearbox debug] Cal_offset: pkt {}, fifo_index_offset = {}".format(pkt.get_uid(), fifo_index_offset))
                 current_fifo_index = 0
                 if (self.level_ping_pong_arr[insert_level] == True):
                     # Current serving set A
