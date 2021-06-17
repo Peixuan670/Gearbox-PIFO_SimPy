@@ -32,8 +32,10 @@ class Pkt_sched(HW_sim_object):
         fifo_num_list = [10, 10, 10]
         granularity_list = [1, 10, 100]
         fifo_size_list = [128, 128, 128]
-        pifo_size_list = [8, 8, 8]
-        pifo_thresh_list = [4, 4, 4]
+        #pifo_size_list = [8, 8, 8]
+        #pifo_thresh_list = [4, 4, 4]
+        pifo_size_list = [256, 256, 256]
+        pifo_thresh_list = [128, 128, 128]
 
         # instantiate the Base_Level object
         
@@ -41,7 +43,7 @@ class Pkt_sched(HW_sim_object):
                                 self.gb_enq_pipe_cmd, self.gb_enq_pipe_sts, self.gb_deq_pipe_req, self.gb_deq_pipe_dat, \
                                 self.gearbox_vc_upd_pipe, self.drop_pipe, \
                                 granularity_list, fifo_num_list, fifo_size_list, pifo_size_list, pifo_thresh_list,\
-                                fifo_check_latency=1, initial_vc=0)
+                                fifo_check_latency=1, initial_vc=0, verbose=True)
         
         self.run()
 
