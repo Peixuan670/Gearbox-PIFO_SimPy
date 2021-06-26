@@ -8,7 +8,8 @@ from desc_gen import *
 #from pkt_mux import *
 #from packet_storage import *
 #from pkt_sched_blevel import *
-from pkt_sched_gearbox import *
+#from pkt_sched_gearbox import *
+from pkt_sched_gearboxII import *
 from pkt_mon import *
 
 class Top_tb(HW_sim_object):
@@ -24,9 +25,12 @@ class Top_tb(HW_sim_object):
         self.pkt_mon_rdy = simpy.Store(env)
 
         pcap_file_name = "smallFlows.pcap"
+        #pcap_file_name = "test.pcap"
         base_file_name = os.path.splitext(pcap_file_name)[0]
-        rate_tuple_list = [(10,2), (10,0.5)]
-        quantum = 8
+        #rate_tuple_list = [(10,2), (10,0.5)]
+        rate_tuple_list = [(100,20), (100,0.05)]
+        #rate_tuple_list = [(1000,200), (1000,0.005)]
+        quantum = 1
 
 #        self.bit_rates = [1 * 10**9, 1 * 10**9, 1 * 10**9, 1 * 10**9]
 #        self.weights = [1, 1, 1, 1]
@@ -44,7 +48,7 @@ class Top_tb(HW_sim_object):
 
         
         self.desc_gen = Desc_gen(env, line_clk_period, sys_clk_period, base_file_name, \
-                                 self.pcap_desc_pipe, self.mon_info_pipe, rate_tuple_list, quantum, verbose=True)
+                                 self.pcap_desc_pipe, self.mon_info_pipe, rate_tuple_list, quantum, verbose=False)
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
                                   self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe, verbose=True)
         self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, self.drop_pipe,\
@@ -72,7 +76,9 @@ def main():
     # instantiate the testbench
     ps_tb = Top_tb(env, line_clk_period, sys_clk_period)
     # run the simulation 
-    env.run(until=800000000)
+    env.run(until=100000000)
+    #env.run(until=30000000)
+    #env.run(until=100000)
 
 if __name__ == "__main__":
     main()

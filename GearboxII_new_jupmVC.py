@@ -259,6 +259,14 @@ class Gearbox_II(HW_sim_object):
 
             yield self.wait_sys_clks(self.enque_latency) # 02232021 Peixuan: enque delay
             # find the correct level to enque
+
+            # 06222021 Peixuan
+            # update finish time of the pkt if finish time < vc
+            ##pkt_finish_time = pkt.get_finish_time(False)
+            ##if pkt_finish_time < self.vc:
+            ##    tuser.rank = self.vc
+            ##pkt_finish_time = pkt.get_finish_time(False)
+
             insert_level = self.find_insert_level(pkt_finish_time)
             
             if insert_level == -1:
@@ -275,6 +283,9 @@ class Gearbox_II(HW_sim_object):
                 self.gb_enq_pipe_sts.put(True) # enque successfully
                 if (self.verbose):
                     print("[Gearbox] @VC = {} pkt {} enque level {}".format(self.vc, pkt.get_uid(), insert_level))
+                    if insert_level > 0:
+                        print("[GearboxII_debug] @VC = {} pkt {} enque level {}; now level pkt = {}; pifo pkt = {}".format(self.vc, pkt.get_uid(), \
+                            insert_level, self.levelsA[insert_level-1].get_pkt_cnt(), self.levelsA[insert_level-1].get_pifo_pkt_cnt()))
 
     
     def deque_p(self):
@@ -318,6 +329,22 @@ class Gearbox_II(HW_sim_object):
                         print ("[Gearbox Debug] dequeing level {} A, pifo".format(deque_level_index))
                     self.deq_pipe_req_arr_A[deque_level_index].put(-1) # no deque fifo index required
                     (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
+
+                    # 06252021 We need to reload here
+                    print ("[Gearbox_Reload_Debug] find out if reload: level {}, isload = {}, level pkt cnt = {}, pifo size = {}".format(deque_level_index, \
+                                if_reload, self.levelsA[deque_level_index-1].get_pkt_cnt(), self.levelsA[deque_level_index-1].get_pifo_pkt_cnt()))
+                    if if_reload == 1 and (self.levelsA[deque_level_index-1].get_pkt_cnt() > self.levelsA[deque_level_index-1].get_pifo_pkt_cnt()):   
+                        # Only reload when FIFO is not empty
+                        if (self.verbose):
+                            print ("[Gearbox_Reload_Debug] reloading level {}, level pkt cnt = {}, pifo size = {}".format(deque_level_index, \
+                                self.levelsA[deque_level_index-1].get_pkt_cnt(), self.levelsA[deque_level_index-1].get_pifo_pkt_cnt()))
+                        self.rld_pipe_cmd_arr_A[deque_level_index].put(1)
+                        print ("[Gearbox Debug] reload level {} by put signal to rld_pipe_cmd".format(deque_level_index))
+                    
+                    # we are not reload again if after reload occupancy is still lower than L
+                    # we cannot yield for that message for that long here
+                    # 06252021 TODO: need to figure out how to reload another time until occupancy is greater than L 
+
             
             self.pkt_cnt = self.pkt_cnt - 1     # update pkt_cnt
             self.gb_deq_pipe_dat.put((dequed_pkt, 0))
