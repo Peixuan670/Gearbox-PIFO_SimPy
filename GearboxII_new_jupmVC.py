@@ -31,6 +31,7 @@ class Gearbox_II(HW_sim_object):
         self.pifo_thresh_list = pifo_thresh_list        # List: pifo reload threshold of each level
 
         self.enque_latency = 2                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
+        #self.enque_latency = 0                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
         self.deque_01_latency = 2                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
         self.deque_02_latency = 4                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
 
@@ -262,12 +263,12 @@ class Gearbox_II(HW_sim_object):
 
             # 06222021 Peixuan
             # update finish time of the pkt if finish time < vc
-            ##pkt_finish_time = pkt.get_finish_time(False)
-            ##if pkt_finish_time < self.vc:
-            ##    tuser.rank = self.vc
-            ##pkt_finish_time = pkt.get_finish_time(False)
+            pkt_finish_time = pkt.get_finish_time(False)    ## ToDo
+            if pkt_finish_time < self.vc:                   ## ToDo
+                tuser.rank = self.vc                        ## ToDo
+            pkt_finish_time = pkt.get_finish_time(False)    ## ToDo
 
-            insert_level = self.find_insert_level(pkt_finish_time)
+            insert_level = self.find_insert_level(pkt_finish_time)  ## ToDo
             
             if insert_level == -1:
                 # level > max level
@@ -331,7 +332,8 @@ class Gearbox_II(HW_sim_object):
                     (dequed_pkt, if_reload) = yield self.deq_pipe_dat_arr_A[deque_level_index].get()
 
                     # 06252021 We need to reload here
-                    print ("[Gearbox_Reload_Debug] find out if reload: level {}, isload = {}, level pkt cnt = {}, pifo size = {}".format(deque_level_index, \
+                    if (self.verbose):
+                        print ("[Gearbox_Reload_Debug] find out if reload: level {}, isload = {}, level pkt cnt = {}, pifo size = {}".format(deque_level_index, \
                                 if_reload, self.levelsA[deque_level_index-1].get_pkt_cnt(), self.levelsA[deque_level_index-1].get_pifo_pkt_cnt()))
                     if if_reload == 1 and (self.levelsA[deque_level_index-1].get_pkt_cnt() > self.levelsA[deque_level_index-1].get_pifo_pkt_cnt()):   
                         # Only reload when FIFO is not empty

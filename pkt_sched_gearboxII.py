@@ -34,8 +34,15 @@ class Pkt_sched(HW_sim_object):
         fifo_size_list = [128, 128, 128]
         #pifo_size_list = [8, 8, 8]
         #pifo_thresh_list = [4, 4, 4]
-        pifo_size_list = [256, 256, 256]
-        pifo_thresh_list = [128, 128, 128]
+
+        #pifo_size_list = [4, 4, 4]
+        #pifo_thresh_list = [2, 2, 2]
+
+        pifo_size_list = [32, 32, 32]
+        pifo_thresh_list = [16, 16, 16]
+
+        #pifo_size_list = [256, 256, 256]
+        #pifo_thresh_list = [128, 128, 128]
 
         # instantiate the Base_Level object
         
@@ -76,7 +83,7 @@ class Pkt_sched(HW_sim_object):
                 print ('@ {:.2f} - Enqueue: desc_out = {}'.format(self.env.now, tmp_tuser))
             enq_pkt_des = Packet_descriptior(0, 0, tmp_tuser)
             if self.verbose:
-                print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, enq_pkt_des.get_uid(), enq_pkt_des.get_finish_time(debug=True)))
+                print ('@ {} - start pushing pkt {} with rank = {}, current vc = {}'.format(self.env.now, enq_pkt_des.get_uid(), enq_pkt_des.get_finish_time(debug=True), self.vc))
 
             self.gb_enq_pipe_cmd.put(enq_pkt_des)
 
@@ -84,6 +91,9 @@ class Pkt_sched(HW_sim_object):
 
             if enq_success:
                 prev_fin_time_lst[flow_id] = fin_time # update prev_fin_time
+            
+            if self.verbose:
+                print ('@ {} - finished pushed pkt {} with rank = {}, current vc = {}'.format(self.env.now, enq_pkt_des.get_uid(), enq_pkt_des.get_finish_time(debug=True), self.vc))
 
     def sched_deq(self):
         while True:

@@ -115,11 +115,11 @@ class GearboxII_level(HW_sim_object):
         while True:
             index = yield self.find_earliest_fifo_pipe_req.get() # fifo index, find the earliest non-empty fifo from this fifo
             if (self.verbose):
-                print ('[Level] Check earliest fifo from index {}'.format(index))
+                print ('[Level] (Find) Check earliest fifo from index {}'.format(index))
             ##yield self.wait_sys_clks(self.fifo_check_latency) # 02232021 Peixuan: put this delay elsewhere
             non_empty_fifo_index = self.check_non_empty_fifo(index)
             if (self.verbose):
-                print ('[Level] Found earliest fifo index = {}'.format(non_empty_fifo_index))
+                print ('[Level] (Find) Found earliest fifo index = {}'.format(non_empty_fifo_index))
             self.find_earliest_fifo_pipe_dat.put(non_empty_fifo_index)
 
     
@@ -140,9 +140,12 @@ class GearboxII_level(HW_sim_object):
         traversed_fifo = 0
         while traversed_fifo < self.fifo_num:
             if not self.fifos[cur_index].get_len() == 0:
-                self.find_earliest_fifo_pipe_dat.put(cur_index)
+                #if (self.verbose):
+                #    print ('[Level] (Before) Found and put earliest fifo{}'.format(cur_index))
+                #self.find_earliest_fifo_pipe_dat.put(cur_index)
                 if (self.verbose):
-                    print ('[Level] Found earliest fifo{}'.format(cur_index))
+                    print ('[Level] (Check) Found earliest fifo{}'.format(cur_index))
+                    print ('[Level] (Check) Fifo size = {}'.format(self.fifos[cur_index].get_len()))
                 return cur_index
             cur_index = (cur_index + 1) % self.fifo_num
             traversed_fifo = traversed_fifo + 1
@@ -268,22 +271,26 @@ class GearboxII_level(HW_sim_object):
         while True:
             # deque FIFO[index]
             yield self.rld_pipe_cmd.get()
-            print("[Gearbox_level_reload_debug] start reload")
+            if (self.verbose):
+                print("[Gearbox_level_reload_debug] start reload")
+                self.print_all_fifo_size()
             cur_fifo_index = self.cur_fifo
-            index = cur_fifo_index  # 06252021 For first version, reload from current level
+            #index = cur_fifo_index  # 06252021 For first version, reload from current level
             #index = (cur_fifo_index + 1) % self.fifo_num
-            self.find_earliest_fifo_pipe_req.put(index)
-            index = yield self.find_earliest_fifo_pipe_dat.get()
+            #self.find_earliest_fifo_pipe_req.put(index)
+            self.find_earliest_fifo_pipe_req.put(cur_fifo_index)
+            rld_index = yield self.find_earliest_fifo_pipe_dat.get()
 
-            print("[Gearbox_level_reload_debug] reload from fifo {}".format(index))
+            if (self.verbose):
+                print("[Gearbox_level_reload_debug] reload from fifo {}".format(rld_index))
 
-            pkt_to_reload = self.fifos[index].get_len() # get current fifo size
+            pkt_to_reload = self.fifos[rld_index].get_len() # get current fifo size
             pkt_reloaded  = 0   # initialized as 0
             if self.rld_pipe_sts is not None:
                 while pkt_reloaded < pkt_to_reload:
                     pkt_reloaded = pkt_reloaded + 1
-                    self.fifo_r_in_pipe_arr[index].put(1)
-                    reload_pkt = yield self.fifo_r_out_pipe_arr[index].get()
+                    self.fifo_r_in_pipe_arr[rld_index].put(1)
+                    reload_pkt = yield self.fifo_r_out_pipe_arr[rld_index].get()
 
                     if (self.verbose):
                         print("[Gearbox_level_reload_debug] @VC = {} reloaded pkt {}".format(self.vc, reload_pkt.get_uid()))
@@ -298,11 +305,11 @@ class GearboxII_level(HW_sim_object):
 
                     # recycle popped_pkt FIFO
                     if popped_pkt_valid == 1:
-                        enque_fifo_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo index
-                        self.fifo_w_in_pipe_arr[enque_fifo_index].put(popped_pkt)
-                        yield self.fifo_w_out_pipe_arr[enque_fifo_index].get()
+                        enque_fifo_rld_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo rld_index
+                        self.fifo_w_in_pipe_arr[enque_fifo_rld_index].put(popped_pkt)
+                        yield self.fifo_w_out_pipe_arr[enque_fifo_rld_index].get()
                         if (self.verbose):
-                            print("[Level] during reloading: {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_index))
+                            print("[Level] during reloading: {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_rld_index))
 
                 if self.pifo.get_len() < self.pifo_threshold:
                     self.rld_pipe_sts.put((0, 1)) # succefully finished reloading, need to reload more pkts
@@ -350,3 +357,10 @@ class GearboxII_level(HW_sim_object):
             enque_index = current_fifo_index + fifo_index_offset - self.fifo_num    # find enque fifo index
 
         return enque_index
+    
+    def print_all_fifo_size(self):
+        index = 0
+        while(index < self.fifo_num):
+            print("[Level_print_fifo] FIFO {} size = {}".format(index, self.fifos[index].get_len()))
+            index = index + 1
+        return
