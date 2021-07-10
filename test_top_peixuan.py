@@ -28,7 +28,7 @@ class Top_tb(HW_sim_object):
         #pcap_file_name = "test.pcap"
         base_file_name = os.path.splitext(pcap_file_name)[0]
         #rate_tuple_list = [(10,2), (10,0.5)]
-        rate_tuple_list = [(1000,10), (1000,0.1)]
+        rate_tuple_list = [(20000,20), (20000,0.05)]
         #rate_tuple_list = [(100,20), (100,0.05)]
         #rate_tuple_list = [(1000,200), (1000,0.005)]
         quantum = 1

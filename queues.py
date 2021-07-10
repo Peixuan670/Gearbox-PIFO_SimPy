@@ -58,6 +58,8 @@ class FIFO(HW_sim_object):
                 print >> sys.stderr, "ERROR: FIFO pop_sm: attempted to read from empty FIFO"
                 data = None
             # write data back
+            # Peixuan deque 07092021
+            #print("[Peixuan_FIFO_Debug_0709] Poped pkt here")
             self.r_out_pipe.put(data)
 
     def __str__(self):

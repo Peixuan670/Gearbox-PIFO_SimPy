@@ -309,7 +309,7 @@ class GearboxII_level(HW_sim_object):
                         self.fifo_w_in_pipe_arr[enque_fifo_rld_index].put(popped_pkt)
                         yield self.fifo_w_out_pipe_arr[enque_fifo_rld_index].get()
                         if (self.verbose):
-                            print("[Level] during reloading: {} recycled to fifo {}".format(pkt.get_uid(), enque_fifo_rld_index))
+                            print("[Level] during reloading: {} recycled to fifo {}".format(popped_pkt.get_uid(), enque_fifo_rld_index))
 
                 if self.pifo.get_len() < self.pifo_threshold:
                     self.rld_pipe_sts.put((0, 1)) # succefully finished reloading, need to reload more pkts

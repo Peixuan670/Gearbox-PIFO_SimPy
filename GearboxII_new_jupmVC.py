@@ -30,10 +30,10 @@ class Gearbox_II(HW_sim_object):
         self.pifo_size_list = pifo_size_list            # List: pifo size of each level
         self.pifo_thresh_list = pifo_thresh_list        # List: pifo reload threshold of each level
 
-        self.enque_latency = 2                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
-        #self.enque_latency = 0                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
-        self.deque_01_latency = 2                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
-        self.deque_02_latency = 4                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
+        #self.enque_latency = 2                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
+        self.enque_latency = 1                          # 02232021 Peixuan: total enque latency = enque_latency + write latency
+        self.deque_01_latency = 1                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
+        self.deque_02_latency = 2                       # 02232021 Peixuan: total enque latency = deque_latency + read latency
 
         # Gearbox enque/deque pipes
         self.gb_enq_pipe_cmd = gb_enq_pipe_cmd
@@ -263,10 +263,10 @@ class Gearbox_II(HW_sim_object):
 
             # 06222021 Peixuan
             # update finish time of the pkt if finish time < vc
-            pkt_finish_time = pkt.get_finish_time(False)    ## ToDo
-            if pkt_finish_time < self.vc:                   ## ToDo
-                tuser.rank = self.vc                        ## ToDo
-            pkt_finish_time = pkt.get_finish_time(False)    ## ToDo
+            #pkt_finish_time = pkt.get_finish_time(False)    ## ToDo
+            #if pkt_finish_time < self.vc:                   ## ToDo
+            #    tuser.rank = self.vc                        ## ToDo
+            #pkt_finish_time = pkt.get_finish_time(False)    ## ToDo
 
             insert_level = self.find_insert_level(pkt_finish_time)  ## ToDo
             
@@ -295,6 +295,7 @@ class Gearbox_II(HW_sim_object):
             yield self.gb_deq_pipe_req.get()
             if (self.verbose):
                 print("[Gearbox Debug] Starting deque at VC = {}".format(self.vc))
+                self.print_pifo_and_fifo_info()
 
             yield self.wait_sys_clks(self.deque_01_latency) # 02232021 Peixuan: deque delay 01 (regular deque delay for every deque)
 
@@ -431,7 +432,7 @@ class Gearbox_II(HW_sim_object):
             index = index + 1
         
         if (self.verbose):
-            self.print_pifo_info()
+            self.print_pifo_and_fifo_info()
         
         # Update vc to outside
         self.vc_data_pipe.put(self.vc)
@@ -596,6 +597,39 @@ class Gearbox_II(HW_sim_object):
 
     
 
+    def print_pifo_and_fifo_info(self):
+        temp_pkt_cnt = 0
+        print("Current VC = {}".format(self.vc))
+        print("[print_pifo_fifo_info] Current Gearbox pkt_cnt = {}".format(self.pkt_cnt)) # Peixuan debug
+        index = 0
+        print("[print_pifo_fifo_info] Base Level 0")
+        print("[print_pifo_fifo_info] Level 0, pkt_cnt: {}".format(self.blevel.get_pkt_cnt()))
+        if not (self.blevel.get_pkt_cnt() == 0):
+            temp_pkt_cnt = temp_pkt_cnt + self.blevel.get_pkt_cnt()
+            print("[print_pifo_fifo_info] Base Level 0 FIFOs")
+            fifo_index = 0
+            while(fifo_index < self.fifo_num_list[index]):
+                print("<print_level_pkt_cnt> Level 0 FIFO {} pkt cnt: {}".format(fifo_index, self.blevel.fifos[fifo_index].get_len()))
+                fifo_index = fifo_index + 1
+        while(index < self.level_num - 1):
+            temp_pkt_cnt = temp_pkt_cnt + self.levelsA[index].get_pkt_cnt()
+            print("[print_pifo_fifo_info] Level {}".format(index + 1))
+            print("[print_pifo_fifo_info] Level {} Set A, pkt_cnt: {}".format(index + 1, self.levelsA[index].get_pkt_cnt()))
+            print("[print_pifo_fifo_info] Level {} Set A, PIFO pkt_cnt: {}".format(index + 1, self.levelsA[index].pifo.get_len()))
+            if not (self.levelsA[index].get_pkt_cnt() == self.levelsA[index].pifo.get_len()):
+                fifo_index = 0
+                while(fifo_index < self.fifo_num_list[index]):
+                    print("<print_level_pkt_cnt> Level {} FIFO {} pkt cnt: {}".format(index + 1, fifo_index, self.levelsA[index].fifos[fifo_index].get_len()))
+                    fifo_index = fifo_index + 1
+            index = index + 1
+        
+        if not (self.pkt_cnt == temp_pkt_cnt):
+            print("print_pifo_fifo_info] There is pkt_cnt_error here")
+            if (self.pkt_cnt > temp_pkt_cnt):
+                print("print_pifo_fifo_info] G_pkt>tmp_pkt ")
+            else:
+                print("print_pifo_fifo_info] G_pkt<tmp_pkt ")
+    
     def print_pifo_info(self):
         print("Current VC = {}".format(self.vc))
         print("[print_pifo_info] Current Gearbox pkt_cnt = {}".format(self.pkt_cnt)) # Peixuan debug

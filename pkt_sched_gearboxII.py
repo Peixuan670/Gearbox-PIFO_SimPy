@@ -38,7 +38,10 @@ class Pkt_sched(HW_sim_object):
         #pifo_size_list = [4, 4, 4]
         #pifo_thresh_list = [2, 2, 2]
 
-        pifo_size_list = [32, 32, 32]
+        #pifo_size_list = [32, 32, 32]
+        #pifo_thresh_list = [16, 16, 16]
+
+        pifo_size_list = [64, 64, 64]
         pifo_thresh_list = [16, 16, 16]
 
         #pifo_size_list = [256, 256, 256]
