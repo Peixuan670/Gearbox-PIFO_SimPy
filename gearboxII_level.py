@@ -280,43 +280,47 @@ class GearboxII_level(HW_sim_object):
             #self.find_earliest_fifo_pipe_req.put(index)
             self.find_earliest_fifo_pipe_req.put(cur_fifo_index)
             rld_index = yield self.find_earliest_fifo_pipe_dat.get()
-
-            if (self.verbose):
-                print("[Gearbox_level_reload_debug] reload from fifo {}".format(rld_index))
-
-            pkt_to_reload = self.fifos[rld_index].get_len() # get current fifo size
-            pkt_reloaded  = 0   # initialized as 0
-            if self.rld_pipe_sts is not None:
-                while pkt_reloaded < pkt_to_reload:
-                    pkt_reloaded = pkt_reloaded + 1
-                    self.fifo_r_in_pipe_arr[rld_index].put(1)
-                    reload_pkt = yield self.fifo_r_out_pipe_arr[rld_index].get()
-
-                    if (self.verbose):
-                        print("[Gearbox_level_reload_debug] @VC = {} reloaded pkt {}".format(self.vc, reload_pkt.get_uid()))
-
-                    # enque PIFO
-                    self.pifo_w_in_pipe.put(reload_pkt)
-                    (done, popped_pkt, popped_pkt_valid) = yield self.pifo_w_out_pipe.get()
-                    ##self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
-                    if (self.verbose):
-                        print("[Gearbox_level_reload_debug] @VC = {} reloaded pkt {} to pifo; now pifo size = {}; level pkt cnt = {}".format(self.vc, \
-                            reload_pkt.get_uid(), self.get_pifo_pkt_cnt(), self.get_pkt_cnt()))
-
-                    # recycle popped_pkt FIFO
-                    if popped_pkt_valid == 1:
-                        enque_fifo_rld_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo rld_index
-                        self.fifo_w_in_pipe_arr[enque_fifo_rld_index].put(popped_pkt)
-                        yield self.fifo_w_out_pipe_arr[enque_fifo_rld_index].get()
-                        if (self.verbose):
-                            print("[Level] during reloading: {} recycled to fifo {}".format(popped_pkt.get_uid(), enque_fifo_rld_index))
-
-                if self.pifo.get_len() < self.pifo_threshold:
-                    self.rld_pipe_sts.put((0, 1)) # succefully finished reloading, need to reload more pkts
-                else:
-                    self.rld_pipe_sts.put((0, 0)) # succefully finished reloading, don't need to reload more pkts
+            if (rld_index == -1):
+                if (self.verbose):
+                    print("[Gearbox_level_reload_debug] found reload fifo index = {}, stop reloading".format(rld_index))
+                self.rld_pipe_sts.put((1, 0)) # all fifos are empty, don't need to reload more pkts
             else:
-                self.rld_pipe_sts.put((-1, -1)) # error in reloading
+                if (self.verbose):
+                    print("[Gearbox_level_reload_debug] reload from fifo {}".format(rld_index))
+
+                pkt_to_reload = self.fifos[rld_index].get_len() # get current fifo size
+                pkt_reloaded  = 0   # initialized as 0
+                if self.rld_pipe_sts is not None:
+                    while pkt_reloaded < pkt_to_reload:
+                        pkt_reloaded = pkt_reloaded + 1
+                        self.fifo_r_in_pipe_arr[rld_index].put(1)
+                        reload_pkt = yield self.fifo_r_out_pipe_arr[rld_index].get()
+
+                        if (self.verbose):
+                            print("[Gearbox_level_reload_debug] @VC = {} reloaded pkt {}".format(self.vc, reload_pkt.get_uid()))
+
+                        # enque PIFO
+                        self.pifo_w_in_pipe.put(reload_pkt)
+                        (done, popped_pkt, popped_pkt_valid) = yield self.pifo_w_out_pipe.get()
+                        ##self.pifo_max_time = self.pifo.peek_tail().get_finish_time(debug=False) # update pifo_max_time
+                        if (self.verbose):
+                            print("[Gearbox_level_reload_debug] @VC = {} reloaded pkt {} to pifo; now pifo size = {}; level pkt cnt = {}".format(self.vc, \
+                                reload_pkt.get_uid(), self.get_pifo_pkt_cnt(), self.get_pkt_cnt()))
+
+                        # recycle popped_pkt FIFO
+                        if popped_pkt_valid == 1:
+                            enque_fifo_rld_index = self.get_enque_fifo(popped_pkt.get_finish_time(debug=False)) # get recycle fifo rld_index
+                            self.fifo_w_in_pipe_arr[enque_fifo_rld_index].put(popped_pkt)
+                            yield self.fifo_w_out_pipe_arr[enque_fifo_rld_index].get()
+                            if (self.verbose):
+                                print("[Level] during reloading: {} recycled to fifo {}".format(popped_pkt.get_uid(), enque_fifo_rld_index))
+
+                    if self.pifo.get_len() < self.pifo_threshold:
+                        self.rld_pipe_sts.put((0, 1)) # succefully finished reloading, need to reload more pkts
+                    else:
+                        self.rld_pipe_sts.put((0, 0)) # succefully finished reloading, don't need to reload more pkts
+                else:
+                    self.rld_pipe_sts.put((-1, -1)) # error in reloading
 
 
     def update_vc(self, vc):

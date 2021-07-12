@@ -280,7 +280,8 @@ class Gearbox_II(HW_sim_object):
             else:
                 self.enq_pipe_cmd_arr_A[insert_level].put(pkt)                   # submit enque request
                 (popped_pkt_valid, popped_pkt) = yield self.enq_pipe_sts_arr_A[insert_level].get()
-                self.pkt_cnt = self.pkt_cnt + 1
+                #070921#self.pkt_cnt = self.pkt_cnt + 1
+                self.update_pkt_cnt()   #070921
                 self.gb_enq_pipe_sts.put(True) # enque successfully
                 if (self.verbose):
                     print("[Gearbox] @VC = {} pkt {} enque level {}".format(self.vc, pkt.get_uid(), insert_level))
@@ -349,7 +350,8 @@ class Gearbox_II(HW_sim_object):
                     # 06252021 TODO: need to figure out how to reload another time until occupancy is greater than L 
 
             
-            self.pkt_cnt = self.pkt_cnt - 1     # update pkt_cnt
+            #070921# self.pkt_cnt = self.pkt_cnt - 1     # update pkt_cnt
+            self.update_pkt_cnt()   #070921
             self.gb_deq_pipe_dat.put((dequed_pkt, 0))
 
             if (self.verbose):
@@ -536,6 +538,16 @@ class Gearbox_II(HW_sim_object):
         return -1 # pkt overflow
     
     def get_pkt_cnt(self):
+        return self.pkt_cnt
+    
+    def update_pkt_cnt(self):
+        temp_pkt_cnt = 0
+        index = 0
+        temp_pkt_cnt = temp_pkt_cnt + self.blevel.get_pkt_cnt()
+        while(index < self.level_num - 1):
+            temp_pkt_cnt = temp_pkt_cnt + self.levelsA[index].get_pkt_cnt()
+            index = index + 1        
+        self.pkt_cnt = temp_pkt_cnt
         return self.pkt_cnt
 
     def is_level_cur_fifo_empty(self, level_index):

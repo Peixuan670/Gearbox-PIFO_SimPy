@@ -7,11 +7,12 @@ from packet import Packet_descriptior
 from queues import *
 
 class Pkt_sched(HW_sim_object):
-    def __init__(self, env, line_clk_period, sys_clk_period, ptr_in_pipe, ptr_out_pipe, pkt_mon_rdy, vc_upd_pipe, drop_pipe):
+    def __init__(self, env, line_clk_period, sys_clk_period, ptr_in_pipe, ptr_out_pipe, pkt_mon_rdy, vc_upd_pipe, drop_pipe, verbose):
         super(Pkt_sched, self).__init__(env, line_clk_period, sys_clk_period)
         self.ptr_in_pipe = ptr_in_pipe
         self.ptr_out_pipe = ptr_out_pipe
         self.pkt_mon_rdy = pkt_mon_rdy
+        self.verbose = verbose
 
         # 12312020 Peixuan: test vc
         self.vc_upd_pipe = vc_upd_pipe
@@ -40,7 +41,7 @@ class Pkt_sched(HW_sim_object):
                                 self.gb_enq_pipe_cmd, self.gb_enq_pipe_sts, self.gb_deq_pipe_req, self.gb_deq_pipe_dat, \
                                 self.gearbox_vc_upd_pipe, self.drop_pipe, \
                                 granularity_list, fifo_num_list, fifo_size_list, \
-                                fifo_check_latency=1, initial_vc=0)
+                                fifo_check_latency=1, initial_vc=0, verbose=False)
 
         #self.ptr_list = list() # remove
         
@@ -52,7 +53,7 @@ class Pkt_sched(HW_sim_object):
         self.env.process(self.vc_update_p())
 
     def sched_enq(self):
-        prev_fin_time_lst = [0] * 1024
+        prev_fin_time_lst = [0] * 32 * 1024
         tmp_tuser = Tuser(0, 0, (0, 0))     # We need a new tmp_user each time
         while True:
             #(head_seg_ptr, meta_ptr, tuser) = yield self.ptr_out_pipe.get()
@@ -68,7 +69,8 @@ class Pkt_sched(HW_sim_object):
                 print ('[pkt_sched_debug] Before get the pkt, Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
 
 
-            print ('@ {:.2f} - Enqueue: tuser = {}'.format(self.env.now, desc_in))
+            if self.verbose:
+                print ('@ {:.2f} - Enqueue: tuser = {}'.format(self.env.now, desc_in))
             pkt_len = desc_in[0]
             rank = desc_in[1]
             flow_id = desc_in[2]
@@ -100,9 +102,11 @@ class Pkt_sched(HW_sim_object):
                 print ('[pkt_sched_debug] After setting tmp_tuser: Current Gearbox Level 1 B FIFO 5 first pkt: len: {}, rank: {}, id: {}'.format(debug_tuser.pkt_len, debug_tuser.rank, debug_tuser.pkt_id))'''
 
 
-            print ('@ {:.2f} - Enqueue: desc_out = {}'.format(self.env.now, tmp_tuser))
+            if self.verbose:
+                print ('@ {:.2f} - Enqueue: desc_out = {}'.format(self.env.now, tmp_tuser))
             enq_pkt_des = Packet_descriptior(0, 0, tmp_tuser)
-            print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, enq_pkt_des.get_uid(), enq_pkt_des.get_finish_time(debug=True)))
+            if self.verbose:
+                print ('@ {} - pushed pkt {} with rank = {}'.format(self.env.now, enq_pkt_des.get_uid(), enq_pkt_des.get_finish_time(debug=True)))
             
             '''# 05172021 Peixuan debug
             level1Bfifo5 = self.gearbox.levelsB[1].fifos[5]
@@ -159,7 +163,8 @@ class Pkt_sched(HW_sim_object):
                     #print ("*****Data from scheduler is: {}".format(data))
                     deq_pkt_des = data[0] # TODO: why this data is a tuple <pkt, 0>
                     #print ('@ {} - From fifo {}, dequed pkt {} with rank = {}'.format(self.env.now, deque_fifo, pkt_des.get_uid(), pkt_des.get_finish_time(debug=True)))
-                    print ('@ {} - From Gearbox dequed pkt {} with rank = {}'.format(self.env.now, deq_pkt_des.get_uid(), deq_pkt_des.get_finish_time(debug=True)))
+                    if self.verbose:
+                        print ('@ {} - From Gearbox dequed pkt {} with rank = {}'.format(self.env.now, deq_pkt_des.get_uid(), deq_pkt_des.get_finish_time(debug=True)))
                     
                     '''# update vc
                     pkt_ft = pkt_des.get_finish_time(0) # TODO: do we need this debug? # 01062020 Peixuan: only update vc from top level
@@ -177,7 +182,8 @@ class Pkt_sched(HW_sim_object):
                     meta_ptr = deq_pkt_des.get_meta_addr()
                     tuser = deq_pkt_des.get_tuser()
                 
-                    print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
+                    if self.verbose:
+                        print ('@ {:.2f} - Dequeue: head_seg_ptr = {} , meta_ptr = {}, tuser = {}'.format(self.env.now, head_seg_ptr, meta_ptr, tuser))
                     # submit read request
                     self.ptr_in_pipe.put((head_seg_ptr, meta_ptr, tuser))
     
@@ -185,6 +191,7 @@ class Pkt_sched(HW_sim_object):
         while True:
             updated_vc = yield self.gearbox_vc_upd_pipe.get()
             self.vc = updated_vc
-            print ("updated pkt_sched vc = {}".format(self.vc))
+            if self.verbose:
+                print ("updated pkt_sched vc = {}".format(self.vc))
 
 

@@ -53,7 +53,7 @@ class Top_tb(HW_sim_object):
         self.pkt_sched = Pkt_sched(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, \
                                   self.pcap_desc_pipe, self.pkt_mon_rdy, self.sched_vc_pipe, self.drop_pipe, verbose=False)
         self.pkt_mon = Pkt_mon(env, line_clk_period, sys_clk_period, self.sched_desc_pipe, self.drop_pipe,\
-                               self.mon_info_pipe, self.pkt_mon_rdy, verbose=False)
+                               self.mon_info_pipe, self.pkt_mon_rdy, verbose=True)
         
         self.vc = 0
         
