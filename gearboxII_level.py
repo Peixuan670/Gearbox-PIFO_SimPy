@@ -251,10 +251,14 @@ class GearboxII_level(HW_sim_object):
         # migration process (deque FIFO)
         while True:
             index = yield self.mig_pipe_req.get()
+            if (self.verbose):
+                print("[Gearbox_level_migrate_debug] start migration")
             mig_num = self.fifos[index].get_len()
             if self.mig_pipe_dat is not None:
                 mig_index = 0
                 while mig_index < mig_num:
+                    if (self.verbose):
+                        print("[Gearbox_level_migrate_debug] Migrate a new pkt")
                     self.fifo_r_in_pipe_arr[index].put(1)
                     migrated_pkt = yield self.fifo_r_out_pipe_arr[index].get()
                     self.mig_pipe_dat.put((migrated_pkt, 0))
